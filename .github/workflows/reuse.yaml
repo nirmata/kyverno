@@ -124,10 +124,14 @@ jobs:
 
       - name : Docker images publish
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
+        env:
+          REPO: "ghcr.io/${{ github.repository_owner }}"
         run: make ${{inputs.publish_command}}-dev
 
       - name : Docker release-images publish
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
+        env:
+          REPO: "ghcr.io/${{ github.repository_owner }}"
         run: make ${{inputs.publish_command}}
 
       - name: get image digest
