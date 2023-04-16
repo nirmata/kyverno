@@ -64,7 +64,7 @@ type ApplyCommandConfig struct {
 	ResourcePaths   []string
 	PolicyPaths     []string
 	GitBranch       string
-	warnExitCode    int
+	WarnExitCode    int
 }
 
 var (
@@ -169,12 +169,12 @@ func Command() *cobra.Command {
 				}
 			}()
 			applyCommandConfig.PolicyPaths = policyPaths
-			rc, resources, skipInvalidPolicies, pvInfos, err := applyCommandConfig.applyCommandHelper()
+			rc, resources, skipInvalidPolicies, pvInfos, err := applyCommandConfig.ApplyCommandHelper()
 			if err != nil {
 				return err
 			}
 
-			PrintReportOrViolation(applyCommandConfig.PolicyReport, rc, applyCommandConfig.ResourcePaths, len(resources), skipInvalidPolicies, applyCommandConfig.Stdin, pvInfos, applyCommandConfig.warnExitCode)
+			PrintReportOrViolation(applyCommandConfig.PolicyReport, rc, applyCommandConfig.ResourcePaths, len(resources), skipInvalidPolicies, applyCommandConfig.Stdin, pvInfos, applyCommandConfig.WarnExitCode)
 			return nil
 		},
 	}
@@ -193,11 +193,11 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.Context, "context", "", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().BoolVarP(&applyCommandConfig.AuditWarn, "audit-warn", "", false, "If set to true, will flag audit policies as warnings instead of failures")
-	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
+	cmd.Flags().IntVar(&applyCommandConfig.WarnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	return cmd
 }
 
-func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []common.Info, err error) {
+func (c *ApplyCommandConfig) ApplyCommandHelper() (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []common.Info, err error) {
 	store.SetMock(true)
 	store.SetRegistryAccess(c.RegistryAccess)
 	if c.Cluster {
