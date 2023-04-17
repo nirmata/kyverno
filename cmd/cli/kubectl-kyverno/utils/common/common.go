@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/memfs"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -26,6 +29,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
@@ -102,8 +106,64 @@ func HasVariables(policy kyvernov1.PolicyInterface) [][]string {
 	return matches
 }
 
+func GetPoliciesFromGitSourcePath(gitSourcePath, gitBranch string) ([]kyvernov1.PolicyInterface, error) {
+	policies := make([]kyvernov1.PolicyInterface, 0)
+	fs := memfs.New()
+
+	gitSourceURL, err := url.Parse(gitSourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("Error: failed to load policies\nCause: %s\n", err)
+	}
+
+	pathElems := strings.Split(gitSourceURL.Path[1:], "/")
+	if len(pathElems) <= 1 {
+		return nil, fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
+	}
+
+	gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
+	repoURL := gitSourceURL.String()
+	var gitPathToYamls string
+	gitBranch, gitPathToYamls = GetGitBranchOrPolicyPaths(gitBranch, repoURL, []string{gitSourcePath})
+	_, cloneErr := gitutils.Clone(repoURL, fs, gitBranch)
+	if cloneErr != nil {
+		return nil, fmt.Errorf("Error: failed to clone repository \nCause: %s\n", cloneErr)
+	}
+	policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
+
+	if err != nil {
+		return nil, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
+	}
+	sort.Strings(policyYamls)
+
+	for _, pp := range policyYamls {
+		filep, err := fs.Open(filepath.Join("", pp))
+		if err != nil {
+			fmt.Printf("Error: file not available with path %s: %v", filep.Name(), err.Error())
+			continue
+		}
+		bytes, err := io.ReadAll(filep)
+		if err != nil {
+			fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
+			continue
+		}
+		policyBytes, err := yaml.ToJSON(bytes)
+		if err != nil {
+			fmt.Printf("failed to convert to JSON: %v", err)
+			continue
+		}
+		policiesFromFile, errFromFile := yamlutils.GetPolicy(policyBytes)
+		if errFromFile != nil {
+			fmt.Printf("failed to process : %v", errFromFile.Error())
+			continue
+		}
+		policies = append(policies, policiesFromFile...)
+	}
+
+	return policies, nil
+}
+
 // GetPolicies - Extracting the policies from multiple YAML
-func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors []error) {
+func GetPolicies(paths []string, gitBranch string) (policies []kyvernov1.PolicyInterface, errors []error) {
 	for _, path := range paths {
 		log.Log.V(5).Info("reading policies", "path", path)
 
@@ -111,8 +171,18 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 			fileDesc os.FileInfo
 			err      error
 		)
-
+		isGitPath := IsGitSourcePath(path)
 		isHTTPPath := IsHTTPRegex.MatchString(path)
+
+		if isGitPath {
+			policiesFromPath, err := GetPoliciesFromGitSourcePath(path, gitBranch)
+			if err != nil {
+				errors = append(errors, err)
+			} else {
+				policies = append(policies, policiesFromPath...)
+			}
+			continue
+		}
 
 		// path clean and retrieving file info can be possible if it's not an HTTP URL
 		if !isHTTPPath {
@@ -142,7 +212,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 				}
 			}
 
-			policiesFromDir, errorsFromDir := GetPolicies(listOfFiles)
+			policiesFromDir, errorsFromDir := GetPolicies(listOfFiles, "")
 			errors = append(errors, errorsFromDir...)
 			policies = append(policies, policiesFromDir...)
 		} else {
@@ -580,59 +650,33 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 }
 
 // GetPoliciesFromPaths - get policies according to the resource path
-func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []kyvernov1.PolicyInterface, err error) {
-	if isGit {
-		for _, pp := range dirPath {
-			filep, err := fs.Open(filepath.Join(policyResourcePath, pp))
+func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, gitBranch string, policyResourcePath string) (policies []kyvernov1.PolicyInterface, err error) {
+	if len(dirPath) > 0 && dirPath[0] == "-" {
+		if IsInputFromPipe() {
+			policyStr := ""
+			scanner := bufio.NewScanner(os.Stdin)
+			for scanner.Scan() {
+				policyStr = policyStr + scanner.Text() + "\n"
+			}
+			yamlBytes := []byte(policyStr)
+			policies, err = yamlutils.GetPolicy(yamlBytes)
 			if err != nil {
-				fmt.Printf("Error: file not available with path %s: %v", filep.Name(), err.Error())
-				continue
+				return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 			}
-			bytes, err := io.ReadAll(filep)
-			if err != nil {
-				fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
-				continue
-			}
-			policyBytes, err := yaml.ToJSON(bytes)
-			if err != nil {
-				fmt.Printf("failed to convert to JSON: %v", err)
-				continue
-			}
-			policiesFromFile, errFromFile := yamlutils.GetPolicy(policyBytes)
-			if errFromFile != nil {
-				fmt.Printf("failed to process : %v", errFromFile.Error())
-				continue
-			}
-			policies = append(policies, policiesFromFile...)
 		}
 	} else {
-		if len(dirPath) > 0 && dirPath[0] == "-" {
-			if IsInputFromPipe() {
-				policyStr := ""
-				scanner := bufio.NewScanner(os.Stdin)
-				for scanner.Scan() {
-					policyStr = policyStr + scanner.Text() + "\n"
-				}
-				yamlBytes := []byte(policyStr)
-				policies, err = yamlutils.GetPolicy(yamlBytes)
-				if err != nil {
-					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
-				}
+		var errors []error
+		policies, errors = GetPolicies(dirPath, gitBranch)
+		if len(policies) == 0 {
+			if len(errors) > 0 {
+				return nil, sanitizederror.NewWithErrors("failed to read file", errors)
 			}
-		} else {
-			var errors []error
-			policies, errors = GetPolicies(dirPath)
-			if len(policies) == 0 {
-				if len(errors) > 0 {
-					return nil, sanitizederror.NewWithErrors("failed to read file", errors)
-				}
-				return nil, sanitizederror.New(fmt.Sprintf("no file found in paths %v", dirPath))
-			}
-			if len(errors) > 0 && log.Log.V(1).Enabled() {
-				fmt.Printf("ignoring errors: \n")
-				for _, e := range errors {
-					fmt.Printf("    %v \n", e.Error())
-				}
+			return nil, sanitizederror.New(fmt.Sprintf("no file found in paths %v", dirPath))
+		}
+		if len(errors) > 0 && log.Log.V(1).Enabled() {
+			fmt.Printf("ignoring errors: \n")
+			for _, e := range errors {
+				fmt.Printf("    %v \n", e.Error())
 			}
 		}
 	}
@@ -1195,8 +1239,8 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 	return *userInfo, *subjectInfo, nil
 }
 
-func IsGitSourcePath(policyPaths []string) bool {
-	return strings.Contains(policyPaths[0], "https://")
+func IsGitSourcePath(policyPath string) bool {
+	return strings.Contains(policyPath, "https://")
 }
 
 func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) (string, string) {
