@@ -3,10 +3,8 @@ package apply
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -20,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
-	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
@@ -252,40 +249,8 @@ func (c *ApplyCommandConfig) ApplyCommandHelper() (rc *common.ResultCounts, reso
 
 	var policies []kyvernov1.PolicyInterface
 
-	isGit := common.IsGitSourcePath(c.PolicyPaths)
-
-	if isGit {
-		gitSourceURL, err := url.Parse(c.PolicyPaths[0])
-		if err != nil {
-			fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
-			osExit(1)
-		}
-
-		pathElems := strings.Split(gitSourceURL.Path[1:], "/")
-		if len(pathElems) <= 1 {
-			err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
-			osExit(1)
-		}
-
-		gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
-		repoURL := gitSourceURL.String()
-		var gitPathToYamls string
-		c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, c.PolicyPaths)
-		_, cloneErr := gitutils.Clone(repoURL, fs, c.GitBranch)
-		if cloneErr != nil {
-			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
-			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
-			osExit(1)
-		}
-		policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
-		if err != nil {
-			return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
-		}
-		sort.Strings(policyYamls)
-		c.PolicyPaths = policyYamls
-	}
-	policies, err = common.GetPoliciesFromPaths(fs, c.PolicyPaths, isGit, "")
+	fmt.Println("______________________________")
+	policies, err = common.GetPoliciesFromPaths(fs, c.PolicyPaths, c.GitBranch, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		osExit(1)
