@@ -135,6 +135,7 @@ func GetPoliciesFromGitSourcePath(gitSourcePath, gitBranch string) ([]kyvernov1.
 	}
 	sort.Strings(policyYamls)
 
+	policyErrors := make([]error, 0)
 	for _, pp := range policyYamls {
 		filep, err := fs.Open(filepath.Join("", pp))
 		if err != nil {
@@ -146,18 +147,17 @@ func GetPoliciesFromGitSourcePath(gitSourcePath, gitBranch string) ([]kyvernov1.
 			fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
 			continue
 		}
-		policyBytes, err := yaml.ToJSON(bytes)
-		if err != nil {
-			fmt.Printf("failed to convert to JSON: %v", err)
-			continue
-		}
-		policiesFromFile, errFromFile := yamlutils.GetPolicy(policyBytes)
+		policiesFromFile, errFromFile := yamlutils.GetPolicy(bytes)
 		if errFromFile != nil {
-			fmt.Printf("failed to process : %v", errFromFile.Error())
+			err := fmt.Errorf("failed to process : %v", errFromFile.Error())
+			policyErrors = append(policyErrors, err)
+
 			continue
 		}
 		policies = append(policies, policiesFromFile...)
 	}
+
+	log.Log.V(3).Info("read policies", "policies", len(policies), "errors", len(policyErrors))
 
 	return policies, nil
 }
