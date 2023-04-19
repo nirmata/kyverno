@@ -16,6 +16,8 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -29,9 +31,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
+	gitutils "github.com/nirmata/kyverno/pkg/utils/git"
 	yamlv2 "gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -124,7 +126,21 @@ func GetPoliciesFromGitSourcePath(gitSourcePath, gitBranch string) ([]kyvernov1.
 	repoURL := gitSourceURL.String()
 	var gitPathToYamls string
 	gitBranch, gitPathToYamls = GetGitBranchOrPolicyPaths(gitBranch, repoURL, []string{gitSourcePath})
-	_, cloneErr := gitutils.Clone(repoURL, fs, gitBranch)
+
+	// auth will be nil for public repos and will have GITHUB_TOKEN for private repositories
+	var auth transport.AuthMethod
+	if isGitRepoPublic := gitutils.IsGitRepoPublic(repoURL); !isGitRepoPublic {
+		token := gitutils.GetGitHubToken()
+		if token == "" {
+			return nil, fmt.Errorf("The repo %s is not public, need GITHUB_TOKEN to get access", repoURL)
+		}
+		auth = &githttp.BasicAuth{
+			Username: "Anything but an empty string",
+			Password: token,
+		}
+	}
+
+	_, cloneErr := gitutils.Clone(repoURL, fs, gitBranch, auth)
 	if cloneErr != nil {
 		return nil, fmt.Errorf("Error: failed to clone repository \nCause: %s\n", cloneErr)
 	}
