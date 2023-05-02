@@ -99,7 +99,7 @@ func Test_buildPolicyReports(t *testing.T) {
 	info := kyvCommon.ProcessValidateEngineResponse(&policy, &er, "", rc, true, false)
 	pvInfos = append(pvInfos, info)
 
-	reports := buildPolicyReports(pvInfos)
+	reports := BuildPolicyReports(pvInfos)
 	assert.Assert(t, len(reports) == 1, len(reports))
 
 	for _, report := range reports {

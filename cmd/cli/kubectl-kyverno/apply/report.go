@@ -21,7 +21,7 @@ import (
 const clusterpolicyreport = "clusterpolicyreport"
 
 // resps is the engine responses generated for a single policy
-func buildPolicyReports(pvInfos []common.Info) (res []*unstructured.Unstructured) {
+func BuildPolicyReports(pvInfos []common.Info) (res []*unstructured.Unstructured) {
 	var raw []byte
 	var err error
 
