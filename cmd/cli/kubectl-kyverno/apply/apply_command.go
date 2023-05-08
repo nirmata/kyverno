@@ -46,22 +46,23 @@ type SkippedInvalidPolicies struct {
 }
 
 type ApplyCommandConfig struct {
-	KubeConfig      string
-	Context         string
-	Namespace       string
-	MutateLogPath   string
-	VariablesString string
-	ValuesFile      string
-	UserInfoPath    string
-	Cluster         bool
-	PolicyReport    bool
-	Stdin           bool
-	RegistryAccess  bool
-	AuditWarn       bool
-	ResourcePaths   []string
-	PolicyPaths     []string
-	GitBranch       string
-	WarnExitCode    int
+	KubeConfig        string
+	Context           string
+	Namespace         string
+	MutateLogPath     string
+	VariablesString   string
+	ValuesFile        string
+	UserInfoPath      string
+	Cluster           bool
+	PolicyReport      bool
+	Stdin             bool
+	RegistryAccess    bool
+	AuditWarn         bool
+	ResourcePaths     []string
+	PolicyPaths       []string
+	GitBranch         string
+	ResourceGitBranch string
+	WarnExitCode      int
 }
 
 var (
@@ -189,6 +190,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.KubeConfig, "kubeconfig", "", "", "path to kubeconfig file with authorization and master location information")
 	cmd.Flags().StringVarP(&applyCommandConfig.Context, "context", "", "", "The name of the kubeconfig context to use")
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
+	cmd.Flags().StringVar(&applyCommandConfig.ResourceGitBranch, "resource-git-branch", "", "resource git repository branch")
 	cmd.Flags().BoolVarP(&applyCommandConfig.AuditWarn, "audit-warn", "", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.WarnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	return cmd
@@ -287,7 +289,7 @@ func (c *ApplyCommandConfig) ApplyCommandHelper() (rc *common.ResultCounts, reso
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to marshal mutated policy", err)
 	}
 
-	resources, err = common.GetResourceAccordingToResourcePath(fs, c.ResourcePaths, c.Cluster, policies, dClient, c.Namespace, c.PolicyReport, false, "")
+	resources, err = common.GetResourceAccordingToResourcePath(fs, c.ResourcePaths, c.Cluster, policies, dClient, c.Namespace, c.PolicyReport, c.ResourceGitBranch, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		osExit(1)

@@ -701,36 +701,60 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, gitBranch strin
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []kyvernov1.PolicyInterface, dClient dclient.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string,
+	cluster bool, policies []kyvernov1.PolicyInterface, dClient dclient.Interface, namespace string, policyReport bool, resourceGitBranch string, policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
-	if isGit {
-		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
-		if err != nil {
-			return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+	if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
+		if IsInputFromPipe() {
+			resourceStr := ""
+			scanner := bufio.NewScanner(os.Stdin)
+			for scanner.Scan() {
+				resourceStr = resourceStr + scanner.Text() + "\n"
+			}
+
+			yamlBytes := []byte(resourceStr)
+			resources, err = GetResource(yamlBytes)
+			if err != nil {
+				return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+			}
 		}
 	} else {
-		if len(resourcePaths) > 0 && resourcePaths[0] == "-" {
-			if IsInputFromPipe() {
-				resourceStr := ""
-				scanner := bufio.NewScanner(os.Stdin)
-				for scanner.Scan() {
-					resourceStr = resourceStr + scanner.Text() + "\n"
+		finalResourcePaths := make([]string, 0)
+
+		for _, resourcePath := range resourcePaths {
+			if IsGitSourcePath(resourcePath) {
+				fs := memfs.New()
+
+				gitSourceURL, err := url.Parse(resourcePath)
+				if err != nil {
+					return nil, fmt.Errorf("Error: failed to load resources\nCause: %s\n", err)
 				}
 
-				yamlBytes := []byte(resourceStr)
-				resources, err = GetResource(yamlBytes)
-				if err != nil {
-					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
+				pathElems := strings.Split(gitSourceURL.Path[1:], "/")
+				if len(pathElems) <= 1 {
+					return nil, fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
 				}
-			}
-		} else {
-			if len(resourcePaths) > 0 {
-				fileDesc, err := os.Stat(resourcePaths[0])
+
+				gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
+				repoURL := gitSourceURL.String()
+				var gitPathToYamls string
+				resourceGitBranch, gitPathToYamls = GetGitBranchOrPolicyPaths(resourceGitBranch, repoURL, []string{resourcePath})
+				_, cloneErr := gitutils.Clone(repoURL, fs, resourceGitBranch, nil)
+				if cloneErr != nil {
+					return nil, fmt.Errorf("Error: failed to clone repository \nCause: %s\n", cloneErr)
+				}
+				resourceYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
+				if err != nil {
+					return nil, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
+				}
+
+				finalResourcePaths = append(finalResourcePaths, resourceYamls...)
+			} else {
+				fileDesc, err := os.Stat(resourcePath)
 				if err != nil {
 					return nil, err
 				}
 				if fileDesc.IsDir() {
-					files, err := os.ReadDir(resourcePaths[0])
+					files, err := os.ReadDir(resourcePath)
 					if err != nil {
 						return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", resourcePaths[0]), err)
 					}
@@ -738,17 +762,20 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 					for _, file := range files {
 						ext := filepath.Ext(file.Name())
 						if ext == ".yaml" || ext == ".yml" {
-							listOfFiles = append(listOfFiles, filepath.Join(resourcePaths[0], file.Name()))
+							listOfFiles = append(listOfFiles, filepath.Join(resourcePath, file.Name()))
 						}
 					}
-					resourcePaths = listOfFiles
+					finalResourcePaths = append(finalResourcePaths, listOfFiles...)
+				} else {
+					finalResourcePaths = append(finalResourcePaths, resourcePath)
 				}
-			}
 
-			resources, err = GetResources(policies, resourcePaths, dClient, cluster, namespace, policyReport)
-			if err != nil {
-				return resources, err
 			}
+		}
+
+		resources, err = GetResources(policies, resourcePaths, dClient, cluster, namespace, policyReport)
+		if err != nil {
+			return resources, err
 		}
 	}
 	return resources, err
