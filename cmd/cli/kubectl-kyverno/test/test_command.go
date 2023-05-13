@@ -852,7 +852,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		return sanitizederror.NewWithError("failed to print mutated policy", err)
 	}
 
-	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, dClient, "", false, isGit, policyResourcePath)
+	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, dClient, "", false, isGit, policyResourcePath, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
