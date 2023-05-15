@@ -1,7 +1,7 @@
 package store
 
 import (
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/nirmata/kyverno/pkg/registryclient"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
