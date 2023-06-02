@@ -6,16 +6,23 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
+	gitutils "github.com/nirmata/kyverno/pkg/utils/git"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -29,8 +36,7 @@ import (
 // - the k8s cluster, if given
 func GetResources(
 	policies []kyvernov1.PolicyInterface, resourcePaths []string, dClient dclient.Interface, cluster bool,
-	namespace string, policyReport bool,
-) ([]*unstructured.Unstructured, error) {
+	namespace string, policyReport bool, gitBranch string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
 
@@ -58,7 +64,7 @@ func GetResources(
 			return resources, err
 		}
 	} else if len(resourcePaths) > 0 {
-		resources, err = whenClusterIsFalse(resourcePaths, policyReport)
+		resources, err = whenClusterIsFalse(resourcePaths, policyReport, gitBranch)
 		if err != nil {
 			return resources, err
 		}
@@ -100,25 +106,40 @@ func whenClusterIsTrue(resourceTypes []schema.GroupVersionKind, subresourceMap m
 	return resources, nil
 }
 
-func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func whenClusterIsFalse(resourcePaths []string, policyReport bool, gitBranch string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	for _, resourcePath := range resourcePaths {
-		resourceBytes, err := getFileBytes(resourcePath)
-		if err != nil {
-			if policyReport {
-				log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
-			} else {
-				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
+		if IsGitSourcePath(resourcePath) {
+			resourcesFromGit, err := getResourcesFromGit(resourcePath, gitBranch)
+			if err != nil {
+				if policyReport {
+					log.Log.V(3).Info(fmt.Sprintf("failed to load resources from Git: %s.", resourcePath), "error", err)
+				} else {
+					fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources from Git: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
+				}
+				continue
 			}
-			continue
-		}
 
-		getResources, err := GetResource(resourceBytes)
-		if err != nil {
-			return nil, err
-		}
+			resources = append(resources, resourcesFromGit...)
+		} else {
+			resourceBytes, err := getFileBytes(resourcePath)
+			if err != nil {
+				if policyReport {
+					log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
+				} else {
+					fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
+				}
+				continue
+			}
 
-		resources = append(resources, getResources...)
+			getResources, err := GetResource(resourceBytes)
+			if err != nil {
+				return nil, err
+			}
+
+			resources = append(resources, getResources...)
+
+		}
 	}
 	return resources, nil
 }
@@ -243,6 +264,102 @@ func getResourcesOfTypeFromCluster(resourceTypes []schema.GroupVersionKind, subr
 		}
 	}
 	return r, nil
+}
+
+func getResourcesFromGit(gitSourcePath, gitBranch string) ([]*unstructured.Unstructured, error) {
+	resources := make([]*unstructured.Unstructured, 0)
+	fs := memfs.New()
+
+	gitSourceURL, err := url.Parse(gitSourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("Error: failed to load resources\nCause: %s\n", err)
+	}
+
+	pathElems := strings.Split(gitSourceURL.Path[1:], "/")
+	if len(pathElems) <= 1 {
+		return nil, fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
+	}
+
+	gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
+	repoURL := gitSourceURL.String()
+	var gitPathToYamls string
+	gitBranch, gitPathToYamls = getGitBranchOrResourcePaths(gitBranch, repoURL, []string{gitSourcePath})
+
+	// auth will be nil for public repos and will have GITHUB_TOKEN for private repositories
+	var auth transport.AuthMethod
+	if isGitRepoPublic := gitutils.IsGitRepoPublic(repoURL); !isGitRepoPublic {
+		token := gitutils.GetGitHubToken()
+		if token == "" {
+			return nil, fmt.Errorf("The repo %s is not public, need GITHUB_TOKEN to get access", repoURL)
+		}
+		auth = &githttp.BasicAuth{
+			Username: "Anything but an empty string",
+			Password: token,
+		}
+	}
+
+	_, cloneErr := gitutils.Clone(repoURL, fs, gitBranch, auth)
+	if cloneErr != nil {
+		return nil, fmt.Errorf("Error: failed to clone repository \nCause: %s\n", cloneErr)
+	}
+	resourceYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
+
+	if err != nil {
+		return nil, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
+	}
+	sort.Strings(resourceYamls)
+
+	resourceErrors := make([]error, 0)
+	for _, pp := range resourceYamls {
+		filep, err := fs.Open(filepath.Join("", pp))
+		if err != nil {
+			fmt.Printf("Error: file not available with path %s: %v", filep.Name(), err.Error())
+			continue
+		}
+		bytes, err := io.ReadAll(filep)
+		if err != nil {
+			fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
+			continue
+		}
+
+		resourcesFromFile, err := GetResource(bytes)
+		if err != nil {
+			err := fmt.Errorf("failed to process : %v", err.Error())
+			resourceErrors = append(resourceErrors, err)
+			continue
+		}
+
+		resources = append(resources, resourcesFromFile...)
+	}
+
+	log.Log.V(3).Info("read policies", "policies", len(resources), "errors", len(resourceErrors))
+
+	return resources, nil
+
+}
+
+func getGitBranchOrResourcePaths(gitBranch, repoURL string, resourcePaths []string) (string, string) {
+	var gitPathToYamls string
+	if gitBranch == "" {
+		gitPathToYamls = "/"
+		if string(resourcePaths[0][len(resourcePaths[0])-1]) == "/" {
+			gitBranch = strings.ReplaceAll(resourcePaths[0], repoURL+"/", "")
+		} else {
+			gitBranch = strings.ReplaceAll(resourcePaths[0], repoURL, "")
+		}
+		if gitBranch == "" {
+			gitBranch = "main"
+		} else if string(gitBranch[0]) == "/" {
+			gitBranch = gitBranch[1:]
+		}
+		return gitBranch, gitPathToYamls
+	}
+	if string(resourcePaths[0][len(resourcePaths[0])-1]) == "/" {
+		gitPathToYamls = strings.ReplaceAll(resourcePaths[0], repoURL+"/", "/")
+	} else {
+		gitPathToYamls = strings.ReplaceAll(resourcePaths[0], repoURL, "/")
+	}
+	return gitBranch, gitPathToYamls
 }
 
 func getFileBytes(path string) ([]byte, error) {

@@ -701,8 +701,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, gitBranch strin
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []kyvernov1.PolicyInterface, dClient dclient.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string,
-) (resources []*unstructured.Unstructured, err error) {
+	cluster bool, policies []kyvernov1.PolicyInterface, dClient dclient.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath, resourceGitBranch string) (resources []*unstructured.Unstructured, err error) {
 	if isGit {
 		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
 		if err != nil {
@@ -724,28 +723,39 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 				}
 			}
 		} else {
-			if len(resourcePaths) > 0 {
-				fileDesc, err := os.Stat(resourcePaths[0])
-				if err != nil {
-					return nil, err
+			refinedResourcePaths := make([]string, 0)
+
+			for _, resourcePath := range resourcePaths {
+				if IsGitSourcePath(resourcePath) {
+					refinedResourcePaths = append(refinedResourcePaths, resourcePath)
+					continue
 				}
+
+				fileDesc, err := os.Stat(resourcePath)
+				if err != nil {
+					log.Log.Error(err, "")
+					continue
+				}
+
 				if fileDesc.IsDir() {
-					files, err := os.ReadDir(resourcePaths[0])
+					files, err := os.ReadDir(resourcePath)
 					if err != nil {
-						return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", resourcePaths[0]), err)
+						return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", resourcePath), err)
 					}
 					listOfFiles := make([]string, 0)
 					for _, file := range files {
 						ext := filepath.Ext(file.Name())
 						if ext == ".yaml" || ext == ".yml" {
-							listOfFiles = append(listOfFiles, filepath.Join(resourcePaths[0], file.Name()))
+							listOfFiles = append(listOfFiles, filepath.Join(resourcePath, file.Name()))
 						}
 					}
-					resourcePaths = listOfFiles
+					refinedResourcePaths = append(refinedResourcePaths, listOfFiles...)
+				} else {
+					refinedResourcePaths = append(refinedResourcePaths, resourcePath)
 				}
 			}
 
-			resources, err = GetResources(policies, resourcePaths, dClient, cluster, namespace, policyReport)
+			resources, err = GetResources(policies, refinedResourcePaths, dClient, cluster, namespace, policyReport, resourceGitBranch)
 			if err != nil {
 				return resources, err
 			}
