@@ -852,7 +852,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		return sanitizederror.NewWithError("failed to print mutated policy", err)
 	}
 
-	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, dClient, "", false, isGit, policyResourcePath, "")
+	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
@@ -888,20 +888,6 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		if !duplicate {
 			noDuplicateResources = append(noDuplicateResources, resource)
 		}
-	}
-
-	msgPolicies := "1 policy"
-	if len(policies) > 1 {
-		msgPolicies = fmt.Sprintf("%d policies", len(policies))
-	}
-
-	msgResources := "1 resource"
-	if len(noDuplicateResources) > 1 {
-		msgResources = fmt.Sprintf("%d resources", len(noDuplicateResources))
-	}
-
-	if len(policies) > 0 && len(noDuplicateResources) > 0 {
-		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
 	}
 
 	for _, policy := range policies {

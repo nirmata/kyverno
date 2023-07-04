@@ -577,13 +577,6 @@ OuterLoop:
 		engineResponses = append(engineResponses, mutateResponse)
 	}
 
-	err = processMutateEngineResponse(c, mutateResponse, resPath)
-	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			return engineResponses, Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
-		}
-	}
-
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(c.Policy) {
 		if rule.HasValidate() || rule.HasImagesValidationChecks() {
@@ -767,14 +760,13 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool, auditWarn bool) Info {
 	var violatedRules []kyvernov1.ViolatedRule
 
-	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
 		if !policyRule.HasValidate() && !policyRule.HasImagesValidationChecks() && !policyRule.HasVerifyImages() {
 			continue
 		}
 
-		for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
+		for _, valResponseRule := range validateResponse.PolicyResponse.Rules {
 			if policyRule.Name == valResponseRule.Name {
 				ruleFoundInEngineResponse = true
 				vrule := kyvernov1.ViolatedRule{
@@ -789,7 +781,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 					vrule.Status = policyreportv1alpha2.StatusPass
 
 				case response.RuleStatusFail:
-					auditWarning := false
+
 					ann := policy.GetAnnotations()
 					if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
 						rc.Warn++
@@ -797,24 +789,11 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 						break
 					} else if auditWarn && validateResponse.GetValidationFailureAction().Audit() {
 						rc.Warn++
-						auditWarning = true
+
 						vrule.Status = policyreportv1alpha2.StatusWarn
 					} else {
 						rc.Fail++
 						vrule.Status = policyreportv1alpha2.StatusFail
-					}
-
-					if !policyReport {
-						if printCount < 1 {
-							if auditWarning {
-								fmt.Printf("\npolicy %s -> resource %s failed as audit warning: \n", policy.GetName(), resPath)
-							} else {
-								fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.GetName(), resPath)
-							}
-							printCount++
-						}
-
-						fmt.Printf("%d. %s: %s \n", i+1, valResponseRule.Name, valResponseRule.Message)
 					}
 
 				case response.RuleStatusError:
