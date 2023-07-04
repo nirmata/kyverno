@@ -203,7 +203,7 @@ func Test_Apply(t *testing.T) {
 		}
 
 		defer func() { osExit = os.Exit }()
-		_, _, _, info, err := tc.config.ApplyCommandHelper()
+		_, _, _, info, _, err := tc.config.ApplyCommandHelper()
 		assert.NilError(t, err, desc)
 
 		resps := BuildPolicyReports(info)
