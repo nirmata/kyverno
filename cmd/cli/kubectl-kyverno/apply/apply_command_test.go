@@ -239,10 +239,10 @@ func Test_Apply(t *testing.T) {
 		}
 
 		defer func() { osExit = os.Exit }()
-		_, _, _, info, err := tc.config.applyCommandHelper()
+		_, _, _, info, _, err := tc.config.ApplyCommandHelper()
 		assert.NilError(t, err, desc)
 
-		clustered, _ := buildPolicyReports(tc.config.AuditWarn, info...)
+		clustered, _ := BuildPolicyReports(tc.config.AuditWarn, info...)
 		assert.Assert(t, len(clustered) > 0, "policy reports should not be empty: %s", desc)
 		for i, resp := range clustered {
 			compareSummary(tc.expectedPolicyReports[i].Summary, resp.Summary, desc)

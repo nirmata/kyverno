@@ -6,7 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func mergeClusterReport(
+func MergeClusterReport(
 	clustered []policyreportv1alpha2.ClusterPolicyReport,
 	namespaced []policyreportv1alpha2.PolicyReport,
 ) policyreportv1alpha2.ClusterPolicyReport {

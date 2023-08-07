@@ -16,7 +16,7 @@ import (
 const clusterpolicyreport = "clusterpolicyreport"
 
 // resps is the engine responses generated for a single policy
-func buildPolicyReports(auditWarn bool, engineResponses ...engineapi.EngineResponse) ([]policyreportv1alpha2.ClusterPolicyReport, []policyreportv1alpha2.PolicyReport) {
+func BuildPolicyReports(auditWarn bool, engineResponses ...engineapi.EngineResponse) ([]policyreportv1alpha2.ClusterPolicyReport, []policyreportv1alpha2.PolicyReport) {
 	var clustered []policyreportv1alpha2.ClusterPolicyReport
 	var namespaced []policyreportv1alpha2.PolicyReport
 	resultsMap := buildPolicyResults(auditWarn, engineResponses...)

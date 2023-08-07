@@ -118,7 +118,7 @@ func Test_mergeClusterReport(t *testing.T) {
 		},
 	}
 
-	cpolr := mergeClusterReport(clustered, namespaced)
+	cpolr := MergeClusterReport(clustered, namespaced)
 
 	assert.Assert(t, cpolr.APIVersion == report.SchemeGroupVersion.String(), cpolr.Kind)
 	assert.Assert(t, cpolr.Kind == "ClusterPolicyReport", cpolr.Kind)

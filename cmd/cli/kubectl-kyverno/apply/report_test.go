@@ -101,7 +101,7 @@ func Test_buildPolicyReports(t *testing.T) {
 		),
 	)
 
-	clustered, namespaced := buildPolicyReports(false, er)
+	clustered, namespaced := BuildPolicyReports(false, er)
 	assert.Assert(t, len(clustered) == 1, len(clustered))
 	assert.Assert(t, len(namespaced) == 0, len(namespaced))
 	{
