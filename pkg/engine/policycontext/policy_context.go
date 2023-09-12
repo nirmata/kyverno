@@ -214,7 +214,7 @@ func NewPolicyContext(
 	if err := enginectx.AddOperation(string(operation)); err != nil {
 		return nil, err
 	}
-	policyContext := newPolicyContextWithJsonContext(operation, enginectx)
+	policyContext := NewPolicyContextWithJsonContext(operation, enginectx)
 	if operation != kyvernov1.Delete {
 		policyContext = policyContext.WithNewResource(resource)
 	} else {
