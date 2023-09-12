@@ -766,6 +766,11 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 			return nil, err
 		}
 		c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
+		operationStatusMap := make(map[string]bool)
+		operationStatusMap["CREATE"] = false
+		operationStatusMap["UPDATE"] = false
+		operationStatusMap["DELETE"] = false
+		operationStatusMap["CONNECT"] = false
 		for _, p := range policies {
 			if p.AdmissionProcessingEnabled() {
 				spec := p.GetSpec()
@@ -776,6 +781,26 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 						c.mergeWebhook(fail, p, true)
 					}
 				}
+			}
+			rules := p.GetSpec().Rules
+			for _, r := range rules {
+				if r.MatchResources.ResourceDescription.Operations != nil {
+					for _, o := range r.MatchResources.ResourceDescription.Operations {
+						operationStatusMap[string(o)] = true
+					}
+				}
+				if r.ExcludeResources.ResourceDescription.Operations != nil {
+					for _, o := range r.MatchResources.ResourceDescription.Operations {
+						operationStatusMap[string(o)] = true
+					}
+				}
+			}
+		}
+		var operationReq []admissionregistrationv1.OperationType
+		for k, v := range operationStatusMap {
+			if v == true {
+				var oper admissionregistrationv1.OperationType = admissionregistrationv1.OperationType(k)
+				operationReq = append(operationReq, oper)
 			}
 		}
 		webhookCfg := config.WebhookConfig{}
@@ -794,7 +819,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 				admissionregistrationv1.ValidatingWebhook{
 					Name:                    config.ValidatingWebhookName + "-ignore",
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/ignore"),
-					Rules:                   ignore.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
+					Rules:                   ignore.buildRulesWithOperations(operationReq...),
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1"},
@@ -812,7 +837,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 				admissionregistrationv1.ValidatingWebhook{
 					Name:                    config.ValidatingWebhookName + "-fail",
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
-					Rules:                   fail.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
+					Rules:                   fail.buildRulesWithOperations(operationReq...),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1"},
