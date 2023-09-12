@@ -798,7 +798,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		}
 		var operationReq []admissionregistrationv1.OperationType
 		for k, v := range operationStatusMap {
-			if v == true {
+			if v {
 				var oper admissionregistrationv1.OperationType = admissionregistrationv1.OperationType(k)
 				operationReq = append(operationReq, oper)
 			}
