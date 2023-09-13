@@ -778,7 +778,7 @@ func analyseOperationStatusMapValidatingWebhookConfiguration(rules []kyvernov1.R
 				operationStatusMap[string(o)] = true
 			}
 		}
-		if r.MatchResources.ResourceDescription.Operations == nil && r.ExcludeResources.ResourceDescription.Operations != nil {
+		if r.MatchResources.ResourceDescription.Operations == nil && r.ExcludeResources.ResourceDescription.Operations == nil {
 			operationStatusMap["CREATE"] = true
 			operationStatusMap["UPDATE"] = true
 			operationStatusMap["DELETE"] = true
@@ -800,7 +800,7 @@ func analyseOperationStatusMapMutatingWebhookConfiguration(rules []kyvernov1.Rul
 				operationStatusMap[string(o)] = true
 			}
 		}
-		if r.MatchResources.ResourceDescription.Operations == nil && r.ExcludeResources.ResourceDescription.Operations != nil {
+		if r.MatchResources.ResourceDescription.Operations == nil && r.ExcludeResources.ResourceDescription.Operations == nil {
 			operationStatusMap["CREATE"] = true
 			operationStatusMap["UPDATE"] = true
 		}
