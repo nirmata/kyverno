@@ -185,8 +185,45 @@ func NewPolicyContextWithJsonContext(operation kyvernov1.AdmissionOperation, jso
 	}
 }
 
-func NewPolicyContext(jp jmespath.Interface, operation kyvernov1.AdmissionOperation) *PolicyContext {
-	return NewPolicyContextWithJsonContext(operation, enginectx.NewContext(jp))
+func NewPolicyContext(
+	jp jmespath.Interface,
+	resource unstructured.Unstructured,
+	operation kyvernov1.AdmissionOperation,
+	admissionInfo *kyvernov1beta1.RequestInfo,
+	configuration config.Configuration,
+) (*PolicyContext, error) {
+	enginectx := enginectx.NewContext(jp)
+	// add resource clone as it may be modified by mutate rules
+	if err := enginectx.AddResource(resource.DeepCopy().Object); err != nil {
+		return nil, err
+	}
+	if err := enginectx.AddNamespace(resource.GetNamespace()); err != nil {
+		return nil, err
+	}
+	if err := enginectx.AddImageInfos(&resource, configuration); err != nil {
+		return nil, err
+	}
+	if admissionInfo != nil {
+		if err := enginectx.AddUserInfo(*admissionInfo); err != nil {
+			return nil, err
+		}
+		if err := enginectx.AddServiceAccount(admissionInfo.AdmissionUserInfo.Username); err != nil {
+			return nil, err
+		}
+	}
+	if err := enginectx.AddOperation(string(operation)); err != nil {
+		return nil, err
+	}
+	policyContext := NewPolicyContextWithJsonContext(operation, enginectx)
+	if operation != kyvernov1.Delete {
+		policyContext = policyContext.WithNewResource(resource)
+	} else {
+		policyContext = policyContext.WithOldResource(resource)
+	}
+	if admissionInfo != nil {
+		policyContext = policyContext.WithAdmissionInfo(*admissionInfo)
+	}
+	return policyContext, nil
 }
 
 func NewPolicyContextFromAdmissionRequest(
