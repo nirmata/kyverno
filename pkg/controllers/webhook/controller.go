@@ -809,7 +809,7 @@ func analyseOperationStatusMapMutatingWebhookConfiguration(rules []kyvernov1.Rul
 }
 
 func getMinimumOperations(operationStatusMap map[string]bool) []admissionregistrationv1.OperationType {
-	operationReq := make([]admissionregistrationv1.OperationType, 4)
+	operationReq := make([]admissionregistrationv1.OperationType, 0, 4)
 	for k, v := range operationStatusMap {
 		if v {
 			var oper admissionregistrationv1.OperationType = admissionregistrationv1.OperationType(k)
