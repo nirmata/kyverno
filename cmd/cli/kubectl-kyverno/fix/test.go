@@ -1,19 +1,29 @@
 package fix
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"slices"
 
-	testapi "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/test"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	"golang.org/x/exp/slices"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func FixTest(test testapi.Test, compress bool) (testapi.Test, []string, error) {
+func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error) {
 	var messages []string
-	if test.Name == "" {
-		messages = append(messages, "name is not set")
+	if test.APIVersion == "" {
+		messages = append(messages, "api version is not set, setting `cli.kyverno.io/v1alpha1`")
+		test.APIVersion = "cli.kyverno.io/v1alpha1"
+	}
+	if test.Kind == "" {
+		messages = append(messages, "kind is not set, setting `Test`")
+		test.Kind = "Test"
+	}
+	if test.Name != "" {
+		messages = append(messages, "name is deprecated, moving it into `metadata.name`")
+		test.ObjectMeta.Name = test.Name
+		test.Name = ""
 	}
 	if len(test.Policies) == 0 {
 		messages = append(messages, "test has no policies")
@@ -21,7 +31,7 @@ func FixTest(test testapi.Test, compress bool) (testapi.Test, []string, error) {
 	if len(test.Resources) == 0 {
 		messages = append(messages, "test has no resources")
 	}
-	var results []testapi.TestResult
+	var results []v1alpha1.TestResult
 	for _, result := range test.Results {
 		if result.Resource != "" && len(result.Resources) != 0 {
 			messages = append(messages, "test result should not use both `resource` and `resources` fields")
@@ -55,7 +65,7 @@ func FixTest(test testapi.Test, compress bool) (testapi.Test, []string, error) {
 		results = append(results, result)
 	}
 	if compress {
-		compressed := map[testapi.TestResultBase][]string{}
+		compressed := map[v1alpha1.TestResultBase][]string{}
 		for _, result := range results {
 			compressed[result.TestResultBase] = append(compressed[result.TestResultBase], result.Resources...)
 		}
@@ -66,42 +76,42 @@ func FixTest(test testapi.Test, compress bool) (testapi.Test, []string, error) {
 				messages = append(messages, "test results contains duplicate resources")
 				v = unique.UnsortedList()
 			}
-			results = append(results, testapi.TestResult{
+			results = append(results, v1alpha1.TestResult{
 				TestResultBase: k,
 				Resources:      v,
 			})
 		}
 	}
-	slices.SortFunc(results, func(a, b testapi.TestResult) int {
-		if x := datautils.Compare(a.Policy, b.Policy); x != 0 {
+	slices.SortFunc(results, func(a, b v1alpha1.TestResult) int {
+		if x := cmp.Compare(a.Policy, b.Policy); x != 0 {
 			return x
 		}
-		if x := datautils.Compare(a.Rule, b.Rule); x != 0 {
+		if x := cmp.Compare(a.Rule, b.Rule); x != 0 {
 			return x
 		}
-		if x := datautils.Compare(a.Result, b.Result); x != 0 {
+		if x := cmp.Compare(a.Result, b.Result); x != 0 {
 			return x
 		}
-		if x := datautils.Compare(a.Kind, b.Kind); x != 0 {
+		if x := cmp.Compare(a.Kind, b.Kind); x != 0 {
 			return x
 		}
-		if x := datautils.Compare(a.PatchedResource, b.PatchedResource); x != 0 {
+		if x := cmp.Compare(a.PatchedResource, b.PatchedResource); x != 0 {
 			return x
 		}
-		if x := datautils.Compare(a.GeneratedResource, b.GeneratedResource); x != 0 {
+		if x := cmp.Compare(a.GeneratedResource, b.GeneratedResource); x != 0 {
 			return x
 		}
-		if x := datautils.Compare(a.CloneSourceResource, b.CloneSourceResource); x != 0 {
+		if x := cmp.Compare(a.CloneSourceResource, b.CloneSourceResource); x != 0 {
 			return x
 		}
 		slices.Sort(a.Resources)
 		slices.Sort(b.Resources)
-		if x := datautils.Compare(len(a.Resources), len(b.Resources)); x != 0 {
+		if x := cmp.Compare(len(a.Resources), len(b.Resources)); x != 0 {
 			return x
 		}
 		if len(a.Resources) == len(b.Resources) {
 			for i := range a.Resources {
-				if x := datautils.Compare(a.Resources[i], b.Resources[i]); x != 0 {
+				if x := cmp.Compare(a.Resources[i], b.Resources[i]); x != 0 {
 					return x
 				}
 			}
