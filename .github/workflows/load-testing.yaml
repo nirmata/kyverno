@@ -77,3 +77,8 @@ jobs:
 
           ./start.sh tests/my-test.js 10 100
         working-directory: ${{ github.workspace }}/load-testing
+
+      - name: Delete Kind cluster
+        run: |
+          kind delete cluster --name my-kind-cluster
+        working-directory: ${{ github.workspace }}
