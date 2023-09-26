@@ -110,7 +110,7 @@ jobs:
           kubectl apply -n "$NAMESPACE" -f job.yaml
 
           echo "Waiting for the job to be completed..."
-          kubectl wait -n "$NAMESPACE" --for=condition=complete --timeout=1200s jobs/load-test
+          kubectl wait -n "$NAMESPACE" --for=condition=complete --timeout=3600s jobs/load-test
 
           echo "Extracting logs and summary..."
           kubectl logs -n "$NAMESPACE" jobs/load-test > "$(basename "$SCRIPT")-${VUS}vu-${ITERATIONS}it-logs.txt"
