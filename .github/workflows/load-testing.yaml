@@ -76,6 +76,7 @@ jobs:
           cd k6
 
           ./start.sh tests/my-test.js 10 100
+        timeout-minutes: 30
         working-directory: ${{ github.workspace }}/load-testing
 
       - name: Delete Kind cluster
