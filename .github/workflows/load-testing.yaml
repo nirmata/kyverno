@@ -1,0 +1,111 @@
+name: Kyverno Load Testing
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - 'main'
+      - 'release*'
+
+jobs:
+  run-kyverno-load-testing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Clone External Repository
+        run: |
+          EXTERNAL_REPO="kyverno/load-testing"
+          EXTERNAL_BRANCH="main"
+          AUTH_HEADER="Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+          git clone "https://github.com/$EXTERNAL_REPO.git"
+        working-directory: ${{ github.workspace }}
+
+      - name: Set Git Config
+        run: |
+          git config --global user.email "anushka@nirmata.com"
+          git config --global user.name "anushka"
+        working-directory: ${{ github.workspace }}
+
+      - name: Create and Add my-test.js
+        run: |
+          cd k6
+          cd tests
+          echo "import http from 'k6/http'; import { check } from 'k6';import { buildKubernetesBaseUrl, generatePod, getParamsWithAuth, getTestNamespace, randomString } from './util.js';const baseUrl = buildKubernetesBaseUrl();const namespace = getTestNamespace();http.setResponseCallback(http.expectedStatuses(400));export default function() {  const podName = \`test-\${randomString(8)}\`;const pod = generatePod(podName);pod.metadata.labels = {app: 'k6-test',}  pod.metadata.labels[\"environment.tess.io/name\"] = 'feature'  const params = getParamsWithAuth();  params.headers['Content-Type'] = 'application/json';const createRes = http.post(\`\${baseUrl}/api/v1/namespaces/\${namespace}/pods\`, JSON.stringify(pod), params);console.log(\"received response \" + createRes.status + \" \" + createRes.status_text)check(createRes, {'verify response code of POST is 400': r => r.status === 400});}export function teardown() {}" > my-test.js
+          
+          git add my-test.js
+          git commit -m "Add my-test.js"
+        working-directory: ${{ github.workspace }}/load-testing
+
+      - name: Create and Add util.js
+        run: |
+          cd k6
+          cd tests
+          echo "export const generatePod = (name = 'test', image = 'nginx') => {return {kind: 'Pod',    apiVersion: 'v1',    metadata: {      name: name    },    spec: {      containers: [        {          name: 'test',          image,          securityContext: {          }        }      ],    }  }}export const generateConfigmap = (name = 'test') => {  return {    kind: "ConfigMap",    apiVersion: "v1",    metadata: {      name: name    }  }}export const generateSecret = (name = 'test') => {  return {    kind: "Secret",    apiVersion: "v1",    metadata: {      name: name    }  }}export const buildKubernetesBaseUrl = () => {  return `https://${__ENV.KUBERNETES_SERVICE_HOST}:${__ENV.KUBERNETES_SERVICE_PORT}`;}export const getTestNamespace = () => {  return __ENV.POD_NAMESPACE;}export const getParamsWithAuth = () => {  return {    headers: {      'Authorization': `Bearer ${__ENV.KUBERNETES_TOKEN}`    }  }}export const randomString = (length) => {  const characters = 'abcdefghijklmnopqrstuvwxyz0123456789';  const charactersLength = characters.length;  let result = '';  let counter = 0;  while (counter < length) {    result += characters.charAt(Math.floor(Math.random() * charactersLength));    counter += 1;  }  return result;}" > util.js
+          
+          git add util.js
+          git commit -m "Add util.js"
+        working-directory: ${{ github.workspace }}/load-testing
+
+      - name: Make ./start.sh Script Executable
+        run: |
+          cd k6
+          chmod +x start.sh
+        working-directory: ${{ github.workspace }}/load-testing
+
+      - name: Set up Kind cluster
+        run: |
+          # Install Kind (Kubernetes in Docker)
+          curl -Lo kind https://kind.sigs.k8s.io/dl/v0.11.1/kind-linux-amd64
+          chmod +x kind
+          sudo mv kind /usr/local/bin/
+          # Create a Kind cluster
+          kind create cluster --name my-kind-cluster
+        working-directory: ${{ github.workspace }}
+
+      - name: Run ./start.sh Script
+        run: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          NAMESPACE="load-test"
+          SCRIPT="tests/my-test.js"
+          VUS="10"
+          ITERATIONS="100"
+          if [[ $ITERATIONS -lt $VUS ]]; then
+            echo "iterations must be greater or equal to vus" 1>&2
+            exit 1
+          fi
+          echo "Deploying namespace..."
+          kubectl create ns "$NAMESPACE"
+          echo "Deploying RBAC..."
+          kubectl apply -n "$NAMESPACE" -f rbac.yaml
+          # copy the script to a temp file under a common name
+          # so that we can reference always to the same name in the pod
+          SCRIPT_DIR=$(mktemp -d)
+          NEW_SCRIPT_PATH="${SCRIPT_DIR}/script.js"
+          cp "$SCRIPT" "$NEW_SCRIPT_PATH"
+          echo "Creating configmap..."
+          kubectl create configmap -n "$NAMESPACE" load-test --from-file="tests/util.js" --from-file="$NEW_SCRIPT_PATH" --from-literal="vus=$VUS" --from-literal="iterations=$ITERATIONS"
+          rm -rf "$SCRIPT_DIR"
+          echo "Deploying k6 job..."
+          kubectl apply -n "$NAMESPACE" -f job.yaml
+          echo "Waiting for the job to be completed..."
+          kubectl wait -n "$NAMESPACE" --for=condition=complete --timeout=3600s jobs/load-test
+          echo "Extracting logs and summary..."
+          kubectl logs -n "$NAMESPACE" jobs/load-test > "$(basename "$SCRIPT")-${VUS}vu-${ITERATIONS}it-logs.txt"
+          echo "Clean up job and configmap..."
+          kubectl delete -n "$NAMESPACE" jobs load-test
+          kubectl delete -n "$NAMESPACE" configmap load-test
+          kubectl delete clusterrolebinding load-test
+          echo "Clean up..."
+          kubectl delete ns "$NAMESPACE"
+        working-directory: ${{ github.workspace }}/load-testing/k6
+
+
+      - name: Delete Kind cluster
+        run: |
+          kind delete cluster --name my-kind-cluster
+        working-directory: ${{ github.workspace }}
