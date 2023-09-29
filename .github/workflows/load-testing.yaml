@@ -1,13 +1,22 @@
 name: Kyverno Load Testing
 
+# on:
+#   workflow_dispatch:
+#   push:
+#     branches:
+#       - '*'
+#   pull_request:
+#     branches:
+#       - 'main'
+#       - 'release*'
+
 on:
-  push:
-    branches:
-      - '*'
-  pull_request:
-    branches:
-      - 'main'
-      - 'release*'
+  workflow_dispatch:
+    inputs:
+      manual-trigger:
+        description: 'Manually trigger the workflow'
+        required: true
+        default: 'true'
 
 jobs:
   run-kyverno-load-testing:
