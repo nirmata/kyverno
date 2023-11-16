@@ -9,6 +9,9 @@ import (
 	"sync"
 	"time"
 
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -129,6 +132,10 @@ func main() {
 	// THIS IS AN UGLY FIX
 	// ELSE KYAML IS NOT THREAD SAFE
 	kyamlopenapi.Schema()
+	if err := sanityChecks(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		os.Exit(1)
+	}
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
 	emitEventsValues := strings.Split(omitEvents, ",")
@@ -223,4 +230,8 @@ func main() {
 	// start leader election
 	le.Run(signalCtx)
 	wg.Wait()
+}
+
+func sanityChecks(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsForBackgroundControllerInstalled(apiserverClient)
 }
