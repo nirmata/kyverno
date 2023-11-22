@@ -226,6 +226,7 @@ func main() {
 	// start leader election
 	le.Run(ctx)
 }
+
 func sanityChecks(apiserverClient apiserver.Interface) error {
 	return kubeutils.CRDsForCleanupControllerInstalled(apiserverClient)
 }

@@ -13,16 +13,10 @@ import (
 func CRDsInstalled(apiserverClient apiserver.Interface) error {
 	kyvernoCRDs := []string{
 		"admissionreports.kyverno.io",
-		// "backgroundscanreports.kyverno.io",
-		// "cleanuppolicies.kyverno.io",
 		"clusteradmissionreports.kyverno.io",
-		// "clusterbackgroundscanreports.kyverno.io",
-		// "clustercleanuppolicies.kyverno.io",
 		"clusterpolicies.kyverno.io",
-		// "clusterpolicyreports.wgpolicyk8s.io",
 		"policies.kyverno.io",
 		"policyexceptions.kyverno.io",
-		// "policyreports.wgpolicyk8s.io",
 		"updaterequests.kyverno.io",
 	}
 	var errs []error
@@ -42,7 +36,7 @@ func isCRDInstalled(apiserverClient apiserver.Interface, kind string) error {
 
 func CRDsForBackgroundControllerInstalled(apiserverClient apiserver.Interface) error {
 	kyvernoCRDs := []string{
-		// needed?
+		"updaterequests.kyverno.io",
 	}
 	var errs []error
 	for _, crd := range kyvernoCRDs {
@@ -53,6 +47,7 @@ func CRDsForBackgroundControllerInstalled(apiserverClient apiserver.Interface) e
 	}
 	return multierr.Combine(errs...)
 }
+
 func CRDsForCleanupControllerInstalled(apiserverClient apiserver.Interface) error {
 	kyvernoCRDs := []string{
 		"cleanuppolicies.kyverno.io",
@@ -67,6 +62,7 @@ func CRDsForCleanupControllerInstalled(apiserverClient apiserver.Interface) erro
 	}
 	return multierr.Combine(errs...)
 }
+
 func CRDsForReportsControllerInstalled(apiserverClient apiserver.Interface) error {
 	kyvernoCRDs := []string{
 		"clusterpolicyreports.wgpolicyk8s.io",
