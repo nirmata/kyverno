@@ -176,12 +176,11 @@ func main() {
 		// TODO: this has been added to backward support command line arguments
 		// will be removed in future and the configuration will be set only via configmaps
 		serverIP                     string
+		disableAutoWebhookGeneration bool
 		webhookTimeout               int
 		maxQueuedEvents              int
 		omitEvents                   string
 		autoUpdateWebhooks           bool
-		disallowValidateWebhook      bool
-		disallowMutateWebhook        bool
 		webhookRegistrationTimeout   time.Duration
 		admissionReports             bool
 		dumpPayload                  bool
@@ -191,12 +190,11 @@ func main() {
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
+	flagset.BoolVar(&disableAutoWebhookGeneration, "disableAutoWebhookGeneration", true, "Set this flag to disable automatic webhook generation.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
-	flagset.BoolVar(&disallowValidateWebhook, "disallowValidateWebhook", true, "Set this flag to 'false' to disable validate webhook.")
-	flagset.BoolVar(&disallowMutateWebhook, "disallowMutateWebhook", true, "Set this flag to 'false' to disable mutate of the webhook.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)

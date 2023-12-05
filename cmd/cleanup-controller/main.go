@@ -50,14 +50,14 @@ func (probes) IsLive() bool {
 
 func main() {
 	var (
-		dumpPayload             bool
-		disallowValidateWebhook bool
-		serverIP                string
-		servicePort             int
+		dumpPayload                  bool
+		disableAutoWebhookGeneration bool
+		serverIP                     string
+		servicePort                  int
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
-	flagset.BoolVar(&disallowValidateWebhook, "disallowValidateWebhook", true, "Set this flag to 'false' to disable validate webhook.")
+	flagset.BoolVar(&disableAutoWebhookGeneration, "disableAutoWebhookGeneration", true, "Set this flag to disable automatic webhook generation.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	// config
