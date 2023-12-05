@@ -180,6 +180,8 @@ func main() {
 		maxQueuedEvents              int
 		omitEvents                   string
 		autoUpdateWebhooks           bool
+		disallowValidateWebhook      bool
+		disallowMutateWebhook        bool
 		webhookRegistrationTimeout   time.Duration
 		admissionReports             bool
 		dumpPayload                  bool
@@ -193,6 +195,8 @@ func main() {
 	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
+	flagset.BoolVar(&disallowValidateWebhook, "disallowValidateWebhook", true, "Set this flag to 'false' to disable validate webhook.")
+	flagset.BoolVar(&disallowMutateWebhook, "disallowMutateWebhook", true, "Set this flag to 'false' to disable mutate of the webhook.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
@@ -450,6 +454,7 @@ func main() {
 			}
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
+		// if conditions based on flags ?
 		setup.KubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
 		setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		setup.KubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),

@@ -50,12 +50,14 @@ func (probes) IsLive() bool {
 
 func main() {
 	var (
-		dumpPayload bool
-		serverIP    string
-		servicePort int
+		dumpPayload             bool
+		disallowValidateWebhook bool
+		serverIP                string
+		servicePort             int
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
+	flagset.BoolVar(&disallowValidateWebhook, "disallowValidateWebhook", true, "Set this flag to 'false' to disable validate webhook.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	// config
@@ -118,6 +120,7 @@ func main() {
 				webhookControllerName,
 				genericwebhookcontroller.NewController(
 					webhookControllerName,
+					// if condition based on flags ?
 					setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 					kubeKyvernoInformer.Core().V1().Secrets(),
