@@ -1,38 +1,42 @@
 package jmespath
 
 import (
-	gojmespath "github.com/jmespath/go-jmespath"
+	gojmespath "github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/pkg/config"
 )
 
-func newJMESPath(intr gojmespath.Interpreter, query string) (*gojmespath.JMESPath, error) {
-	parser := gojmespath.NewParser()
-	ast, err := parser.Parse(query)
+type QueryProxy struct {
+	jmesPath       *gojmespath.JMESPath
+	functionCaller *gojmespath.FunctionCaller
+}
+
+func (q *QueryProxy) Search(data interface{}) (interface{}, error) {
+	return q.jmesPath.Search(data, gojmespath.WithFunctionCaller(q.functionCaller))
+}
+
+func newJMESPath(query string, functionCaller *gojmespath.FunctionCaller) (*QueryProxy, error) {
+	jmesPath, err := gojmespath.Compile(query)
 	if err != nil {
 		return nil, err
 	}
-
-	return gojmespath.NewJMESPath(ast, intr), nil
+	return &QueryProxy{
+		jmesPath,
+		functionCaller,
+	}, nil
 }
 
 func newImplementation(configuration config.Configuration) Interface {
-	i := gojmespath.NewInterpreter()
+	functionCaller := gojmespath.NewFunctionCaller()
 	functions := GetFunctions(configuration)
 	for _, f := range functions {
-		i.Register(f.FunctionEntry)
+		functionCaller.Register(f.FunctionEntry)
 	}
 
 	return implementation{
-		interpreter: i,
+		functionCaller,
 	}
 }
 
-func newExecution(intr gojmespath.Interpreter, query string, data interface{}) (interface{}, error) {
-	parser := gojmespath.NewParser()
-	ast, err := parser.Parse(query)
-	if err != nil {
-		return nil, err
-	}
-
-	return intr.Execute(ast, data)
+func newExecution(fCall *gojmespath.FunctionCaller, query string, data interface{}) (interface{}, error) {
+	return gojmespath.Search(query, data, gojmespath.WithFunctionCaller(fCall))
 }
