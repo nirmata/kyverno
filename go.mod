@@ -28,6 +28,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
+	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/mattbaird/jsonpatch v0.0.0-20200820163806-098863c1fc24
 	github.com/notaryproject/notation-core-go v1.0.0-rc.4
@@ -328,7 +329,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
-replace (
-	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20230906134905-62fa64b71f91
-	github.com/sigstore/cosign => github.com/nirmata/cosign v1.13.2-0.20230726092108-615d4da057d8
-)
+replace github.com/sigstore/cosign => github.com/nirmata/cosign v1.13.2-0.20230726092108-615d4da057d8

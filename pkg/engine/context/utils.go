@@ -20,6 +20,27 @@ func AddResource(ctx Interface, dataRaw []byte) error {
 	return ctx.AddResource(data)
 }
 
+func clearLeafValue(data map[string]interface{}, tags ...string) bool {
+	if len(tags) == 0 {
+		return false
+	}
+	for i := 0; i < len(tags); i++ {
+		k := tags[i]
+		if i == len(tags)-1 {
+			delete(data, k)
+			return true
+		}
+
+		if nextMap, ok := data[k].(map[string]interface{}); ok {
+			data = nextMap
+		} else {
+			return false
+		}
+	}
+
+	return false
+}
+
 func AddOldResource(ctx Interface, dataRaw []byte) error {
 	var data map[string]interface{}
 	if err := json.Unmarshal(dataRaw, &data); err != nil {
