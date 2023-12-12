@@ -120,7 +120,6 @@ func main() {
 				webhookControllerName,
 				genericwebhookcontroller.NewController(
 					webhookControllerName,
-					// if condition based on flags ?
 					setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 					kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 					kubeKyvernoInformer.Core().V1().Secrets(),
