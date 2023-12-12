@@ -102,6 +102,7 @@ func createrLeaderControllers(
 	admissionReports bool,
 	serverIP string,
 	webhookTimeout int,
+	disableAutoWebhookGeneration bool,
 	autoUpdateWebhooks bool,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
@@ -134,6 +135,7 @@ func createrLeaderControllers(
 		serverIP,
 		int32(webhookTimeout),
 		servicePort,
+		disableAutoWebhookGeneration,
 		autoUpdateWebhooks,
 		admissionReports,
 		runtime,
@@ -162,6 +164,7 @@ func createrLeaderControllers(
 		genericwebhookcontroller.Fail,
 		genericwebhookcontroller.None,
 		configuration,
+		disableAutoWebhookGeneration,
 	)
 	return []internal.Controller{
 			internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers),
@@ -177,6 +180,7 @@ func main() {
 		// TODO: this has been added to backward support command line arguments
 		// will be removed in future and the configuration will be set only via configmaps
 		serverIP                     string
+		disableAutoWebhookGeneration bool
 		webhookTimeout               int
 		maxQueuedEvents              int
 		omitEvents                   string
@@ -191,6 +195,7 @@ func main() {
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
+	flagset.BoolVar(&disableAutoWebhookGeneration, "disableAutoWebhookGeneration", false, "Set this flag to disable automatic webhook generation.")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omit-events", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omit-events=PolicyApplied,PolicyViolation")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
@@ -351,6 +356,7 @@ func main() {
 				admissionReports,
 				serverIP,
 				webhookTimeout,
+				disableAutoWebhookGeneration,
 				autoUpdateWebhooks,
 				kubeInformer,
 				kubeKyvernoInformer,
