@@ -456,7 +456,6 @@ func main() {
 			}
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
-		// if conditions based on flags ?
 		setup.KubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
 		setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		setup.KubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
