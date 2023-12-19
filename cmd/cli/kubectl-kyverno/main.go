@@ -68,4 +68,5 @@ func configurelog(cli *cobra.Command) {
 	_ = cli.PersistentFlags().MarkHidden("log_backtrace_at")
 	_ = cli.PersistentFlags().MarkHidden("stderrthreshold")
 	_ = cli.PersistentFlags().MarkHidden("vmodule")
+
 }
