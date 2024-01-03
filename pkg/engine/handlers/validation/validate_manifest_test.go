@@ -621,7 +621,8 @@ FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
 `
 
 var (
-	h   = validateManifestHandler{}
+	h = validateManifestHandler{}
+	// error here
 	cfg = config.NewDefaultConfiguration(false)
 )
 
