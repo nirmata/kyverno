@@ -774,7 +774,7 @@ func getOperationStatusMap() map[string]bool {
 
 func computeOperationsForValidatingWebhookConf(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
 	for _, r := range rules {
-		opFound := false
+		var opFound bool
 		opFoundCount := 0
 		if len(r.MatchResources.Any) != 0 {
 			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.Any, operationStatusMap)
@@ -825,12 +825,11 @@ func opFoundCountIncrement(opFound bool, opFoundCount int) int {
 
 func computeOperationsForMutatingWebhookConf(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
 	for _, r := range rules {
-		opFound := false
+		var opFound bool
 		opFoundCount := 0
 		if len(r.MatchResources.Any) != 0 {
 			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.Any, operationStatusMap)
 			opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-
 		}
 		if len(r.MatchResources.All) != 0 {
 			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.All, operationStatusMap)
