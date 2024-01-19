@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+
 	"github.com/kyverno/kyverno/api/kyverno"
 	policyhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/policy"
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
@@ -94,6 +97,10 @@ func main() {
 	// setup
 	ctx, setup, sdown := internal.Setup(appConfig, "kyverno-cleanup-controller", false)
 	defer sdown()
+	if err := sanityChecksCleanupController(setup.ApiServerClient); err != nil {
+		setup.Logger.Error(err, "sanity checks failed")
+		os.Exit(1)
+	}
 	if caSecretName == "" {
 		setup.Logger.Error(errors.New("exiting... caSecretName is a required flag"), "exiting... caSecretName is a required flag")
 		os.Exit(1)
@@ -327,4 +334,9 @@ func main() {
 	server.Run(ctx.Done())
 	// start leader election
 	le.Run(ctx)
+}
+
+// sanity checks for cleanup-controller
+func sanityChecksCleanupController(apiserverClient apiserver.Interface) error {
+	return kubeutils.CRDsForCleanupControllerInstalled(apiserverClient)
 }
