@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"cmp"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -44,28 +45,28 @@ func (wh *webhook) buildRulesWithOperations(ops ...admissionregistrationv1.Opera
 			Operations: ops,
 		})
 	}
-	less := func(a []string, b []string) (bool, bool) {
-		if len(a) != len(b) {
-			return len(a) < len(b), true
+	less := func(a []string, b []string) (int, bool) {
+		if x := cmp.Compare(len(a), len(b)); x != 0 {
+			return x, true
 		}
 		for i := range a {
-			if a[i] != b[i] {
-				return a[i] < b[i], true
+			if x := cmp.Compare(a[i], b[i]); x != 0 {
+				return x, true
 			}
 		}
-		return false, false
+		return 0, false
 	}
-	slices.SortFunc(rules, func(a admissionregistrationv1.RuleWithOperations, b admissionregistrationv1.RuleWithOperations) bool {
-		if less, match := less(a.APIGroups, b.APIGroups); match {
-			return less
+	slices.SortFunc(rules, func(a admissionregistrationv1.RuleWithOperations, b admissionregistrationv1.RuleWithOperations) int {
+		if x, match := less(a.APIGroups, b.APIGroups); match {
+			return x
 		}
-		if less, match := less(a.APIVersions, b.APIVersions); match {
-			return less
+		if x, match := less(a.APIVersions, b.APIVersions); match {
+			return x
 		}
-		if less, match := less(a.Resources, b.Resources); match {
-			return less
+		if x, match := less(a.Resources, b.Resources); match {
+			return x
 		}
-		return false
+		return 0
 	})
 	return rules
 }
