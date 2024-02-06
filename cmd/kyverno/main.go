@@ -135,11 +135,11 @@ func createrLeaderControllers(
 		serverIP,
 		int32(webhookTimeout),
 		servicePort,
-		disableAutoWebhookGeneration,
 		autoUpdateWebhooks,
 		admissionReports,
 		runtime,
 		configuration,
+		disableAutoWebhookGeneration,
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
