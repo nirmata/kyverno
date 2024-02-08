@@ -100,8 +100,8 @@ type controller struct {
 	defaultTimeout               int32
 	servicePort                  int32
 	autoUpdateWebhooks           bool
-	disableAutoWebhookGeneration bool
 	admissionReports             bool
+	disableAutoWebhookGeneration bool
 	runtime                      runtimeutils.Runtime
 	configuration                config.Configuration
 
@@ -126,11 +126,11 @@ func NewController(
 	server string,
 	defaultTimeout int32,
 	servicePort int32,
-	disableAutoWebhookGeneration bool,
 	autoUpdateWebhooks bool,
 	admissionReports bool,
 	runtime runtimeutils.Runtime,
 	configuration config.Configuration,
+	disableAutoWebhookGeneration bool,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
@@ -151,10 +151,10 @@ func NewController(
 		defaultTimeout:               defaultTimeout,
 		servicePort:                  servicePort,
 		autoUpdateWebhooks:           autoUpdateWebhooks,
-		disableAutoWebhookGeneration: disableAutoWebhookGeneration,
 		admissionReports:             admissionReports,
 		runtime:                      runtime,
 		configuration:                configuration,
+		disableAutoWebhookGeneration: disableAutoWebhookGeneration,
 		policyState: map[string]sets.Set[string]{
 			config.MutatingWebhookConfigurationName:   sets.New[string](),
 			config.ValidatingWebhookConfigurationName: sets.New[string](),
@@ -624,6 +624,20 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(cfg config
 		nil
 }
 
+func addOpnForMutatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
+	var mapResourceToOpn map[string]map[string]bool
+	for _, r := range rules {
+		var resources []string
+		operationStatusMap := getOperationStatusMap()
+		operationStatusMap = computeOperationsForMutatingWebhookConf(r, operationStatusMap)
+		resources = computeResourcesOfRule(r)
+		for _, r := range resources {
+			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
+		}
+	}
+	return mapResourceToOpnType
+}
+
 func (c *controller) buildResourceMutatingWebhookConfiguration(cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
 	result := admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), c.buildOwner()...),
@@ -637,7 +651,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(cfg config.Config
 			return nil, err
 		}
 		c.recordPolicyState(config.MutatingWebhookConfigurationName, policies...)
-		operationStatusMap := getOperationStatusMap()
+		var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
 		for _, p := range policies {
 			spec := p.GetSpec()
 			if spec.HasMutate() || spec.HasVerifyImages() {
@@ -646,11 +660,10 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(cfg config.Config
 				} else {
 					c.mergeWebhook(fail, p, false)
 				}
+				rules := p.GetSpec().Rules
+				mapResourceToOpnType = addOpnForMutatingWebhookConf(rules, mapResourceToOpnType)
 			}
-			rules := p.GetSpec().Rules
-			operationStatusMap = computeOperationsForMutatingWebhookConf(rules, operationStatusMap)
 		}
-		operationReq := getMinimumOperations(operationStatusMap)
 		webhookCfg := config.WebhookConfig{}
 		webhookCfgs := cfg.GetWebhooks()
 		if len(webhookCfgs) > 0 {
@@ -663,7 +676,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(cfg config.Config
 				admissionregistrationv1.MutatingWebhook{
 					Name:                    config.MutatingWebhookName + "-ignore",
 					ClientConfig:            c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/ignore"),
-					Rules:                   ignore.buildRulesWithOperations(operationReq...),
+					Rules:                   ignore.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}),
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             &noneOnDryRun,
 					AdmissionReviewVersions: []string{"v1"},
@@ -681,7 +694,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(cfg config.Config
 				admissionregistrationv1.MutatingWebhook{
 					Name:                    config.MutatingWebhookName + "-fail",
 					ClientConfig:            c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/fail"),
-					Rules:                   fail.buildRulesWithOperations(operationReq...),
+					Rules:                   fail.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE"}),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             &noneOnDryRun,
 					AdmissionReviewVersions: []string{"v1"},
@@ -750,131 +763,18 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(cfg conf
 		nil
 }
 
-func scanResourceFilter(resFilter kyvernov1.ResourceFilters, operationStatusMap map[string]bool) (bool, map[string]bool) {
-	opFound := false
-	for _, rf := range resFilter {
-		if rf.ResourceDescription.Operations != nil {
-			for _, o := range rf.ResourceDescription.Operations {
-				opFound = true
-				operationStatusMap[string(o)] = true
-			}
-		}
-	}
-	return opFound, operationStatusMap
-}
-
-func getOperationStatusMap() map[string]bool {
-	operationStatusMap := make(map[string]bool)
-	operationStatusMap[webhookCreate] = false
-	operationStatusMap[webhookUpdate] = false
-	operationStatusMap[webhookDelete] = false
-	operationStatusMap[webhookConnect] = false
-	return operationStatusMap
-}
-
-func computeOperationsForValidatingWebhookConf(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
+func addOpnForValidatingWebhookConf(rules []kyvernov1.Rule, mapResourceToOpnType map[string][]admissionregistrationv1.OperationType) map[string][]admissionregistrationv1.OperationType {
+	var mapResourceToOpn map[string]map[string]bool
 	for _, r := range rules {
-		var opFound bool
-		opFoundCount := 0
-		if len(r.MatchResources.Any) != 0 {
-			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.Any, operationStatusMap)
-			opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-		}
-		if len(r.MatchResources.All) != 0 {
-			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.All, operationStatusMap)
-			opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-		}
-		if len(r.ExcludeResources.Any) != 0 {
-			opFound, operationStatusMap = scanResourceFilter(r.ExcludeResources.Any, operationStatusMap)
-			opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-		}
-		if len(r.ExcludeResources.All) != 0 {
-			opFound, operationStatusMap = scanResourceFilter(r.ExcludeResources.All, operationStatusMap)
-			opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-		}
-		if r.MatchResources.ResourceDescription.Operations != nil {
-			for _, o := range r.MatchResources.ResourceDescription.Operations {
-				opFound = true
-				operationStatusMap[string(o)] = true
-				opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-			}
-		}
-		if r.ExcludeResources.ResourceDescription.Operations != nil {
-			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
-				opFound = true
-				operationStatusMap[string(o)] = true
-				opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-			}
-		}
-		if opFoundCount == 0 {
-			operationStatusMap[webhookCreate] = true
-			operationStatusMap[webhookUpdate] = true
-			operationStatusMap[webhookConnect] = true
-			operationStatusMap[webhookDelete] = true
+		var resources []string
+		operationStatusMap := getOperationStatusMap()
+		operationStatusMap = computeOperationsForValidatingWebhookConf(r, operationStatusMap)
+		resources = computeResourcesOfRule(r)
+		for _, r := range resources {
+			mapResourceToOpn, mapResourceToOpnType = appendResource(r, mapResourceToOpn, operationStatusMap, mapResourceToOpnType)
 		}
 	}
-	return operationStatusMap
-}
-
-func opFoundCountIncrement(opFound bool, opFoundCount int) int {
-	if opFound {
-		opFoundCount++
-	}
-	return opFoundCount
-}
-
-func computeOperationsForMutatingWebhookConf(rules []kyvernov1.Rule, operationStatusMap map[string]bool) map[string]bool {
-	for _, r := range rules {
-		var opFound bool
-		opFoundCount := 0
-		if len(r.MatchResources.Any) != 0 {
-			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.Any, operationStatusMap)
-			opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-		}
-		if len(r.MatchResources.All) != 0 {
-			opFound, operationStatusMap = scanResourceFilter(r.MatchResources.All, operationStatusMap)
-			opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-		}
-		if len(r.ExcludeResources.Any) != 0 {
-			opFound, operationStatusMap = scanResourceFilter(r.ExcludeResources.Any, operationStatusMap)
-			opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-		}
-		if len(r.ExcludeResources.All) != 0 {
-			opFound, operationStatusMap = scanResourceFilter(r.ExcludeResources.All, operationStatusMap)
-			opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-		}
-		if r.MatchResources.ResourceDescription.Operations != nil {
-			for _, o := range r.MatchResources.ResourceDescription.Operations {
-				opFound = true
-				operationStatusMap[string(o)] = true
-				opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-			}
-		}
-		if r.ExcludeResources.ResourceDescription.Operations != nil {
-			for _, o := range r.ExcludeResources.ResourceDescription.Operations {
-				opFound = true
-				operationStatusMap[string(o)] = true
-				opFoundCount = opFoundCountIncrement(opFound, opFoundCount)
-			}
-		}
-		if opFoundCount == 0 {
-			operationStatusMap[webhookCreate] = true
-			operationStatusMap[webhookUpdate] = true
-		}
-		operationStatusMap[webhookDelete] = true
-	}
-	return operationStatusMap
-}
-
-func getMinimumOperations(operationStatusMap map[string]bool) []admissionregistrationv1.OperationType {
-	operationReq := make([]admissionregistrationv1.OperationType, 0, 4)
-	for k, v := range operationStatusMap {
-		if v {
-			var oper admissionregistrationv1.OperationType = admissionregistrationv1.OperationType(k)
-			operationReq = append(operationReq, oper)
-		}
-	}
-	return operationReq
+	return mapResourceToOpnType
 }
 
 func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
@@ -890,7 +790,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 			return nil, err
 		}
 		c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
-		operationStatusMap := getOperationStatusMap()
+		var mapResourceToOpnType map[string][]admissionregistrationv1.OperationType
 		for _, p := range policies {
 			spec := p.GetSpec()
 			if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
@@ -901,10 +801,8 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 				}
 			}
 			rules := p.GetSpec().Rules
-			operationStatusMap = computeOperationsForValidatingWebhookConf(rules, operationStatusMap)
+			mapResourceToOpnType = addOpnForValidatingWebhookConf(rules, mapResourceToOpnType)
 		}
-		operationsNeeded := getMinimumOperations(operationStatusMap)
-
 		webhookCfg := config.WebhookConfig{}
 		webhookCfgs := cfg.GetWebhooks()
 		if len(webhookCfgs) > 0 {
@@ -921,7 +819,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 				admissionregistrationv1.ValidatingWebhook{
 					Name:                    config.ValidatingWebhookName + "-ignore",
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/ignore"),
-					Rules:                   ignore.buildRulesWithOperations(operationsNeeded...),
+					Rules:                   ignore.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}),
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1"},
@@ -938,7 +836,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(cfg config.Conf
 				admissionregistrationv1.ValidatingWebhook{
 					Name:                    config.ValidatingWebhookName + "-fail",
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
-					Rules:                   fail.buildRulesWithOperations(operationsNeeded...),
+					Rules:                   fail.buildRulesWithOperations(mapResourceToOpnType, []admissionregistrationv1.OperationType{"CREATE", "UPDATE", "DELETE", "CONNECT"}),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1"},
