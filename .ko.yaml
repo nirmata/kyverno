@@ -1,3 +1,5 @@
+defaultBaseImage: alpine:latest
+
 builds:
 - id: kyverno
   main: ./cmd/kyverno
