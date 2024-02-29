@@ -1,4 +1,6 @@
-defaultBaseImage: alpine:latest
+# defaultBaseImage: alpine:latest
+# switch to alpine when needed in a separate branch and manually run the workflow
+# 'Publish alpine images' to publish these images
 
 builds:
 - id: kyverno
