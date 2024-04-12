@@ -141,6 +141,7 @@ func main() {
 	kyamlopenapi.Schema()
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+	polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 	emitEventsValues := strings.Split(omitEvents, ",")
 	if omitEvents == "" {
 		emitEventsValues = []string{}
@@ -172,6 +173,7 @@ func main() {
 		setup.KubeClient,
 		setup.KyvernoClient,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		polexCache,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
@@ -230,6 +232,9 @@ func main() {
 	if err != nil {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
+	}
+	if polexController != nil {
+		polexController.Run(signalCtx, setup.Logger, &wg)
 	}
 	// start leader election
 	le.Run(signalCtx)

@@ -244,6 +244,7 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+	polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister().Secrets(config.KyvernoNamespace())
 	openApiManager, err := openapi.NewManager(setup.Logger.WithName("openapi"))
 	if err != nil {
@@ -310,6 +311,7 @@ func main() {
 		setup.KubeClient,
 		setup.KyvernoClient,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		polexCache,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
@@ -476,6 +478,9 @@ func main() {
 	}
 	// start webhooks server
 	server.Run(signalCtx.Done())
+	if polexController != nil {
+		polexController.Run(signalCtx, setup.Logger, &wg)
+	}
 	wg.Wait()
 	// say goodbye...
 	setup.Logger.V(2).Info("Kyverno shutdown successful")

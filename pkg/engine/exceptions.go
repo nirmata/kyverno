@@ -1,14 +1,11 @@
 package engine
 
 import (
-	"fmt"
-
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -20,21 +17,12 @@ func findExceptions(
 	if selector == nil {
 		return nil, nil
 	}
-	polexs, err := selector.List(labels.Everything())
+	policyName := cache.MetaObjectToName(policy).String()
+	polexs, err := selector.Find(policyName, rule)
 	if err != nil {
 		return nil, err
 	}
-	var result []*kyvernov2alpha1.PolicyException
-	policyName, err := cache.MetaNamespaceKeyFunc(policy)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compute policy key: %w", err)
-	}
-	for _, polex := range polexs {
-		if polex.Contains(policyName, rule) {
-			result = append(result, polex)
-		}
-	}
-	return result, nil
+	return polexs, nil
 }
 
 // matchesException checks if an exception applies to the resource being admitted

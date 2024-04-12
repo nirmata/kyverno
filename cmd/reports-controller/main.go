@@ -227,6 +227,7 @@ func main() {
 	}
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+	polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 	omitEventsValues := strings.Split(omitEvents, ",")
 	if omitEvents == "" {
 		omitEventsValues = []string{}
@@ -251,6 +252,7 @@ func main() {
 		setup.KubeClient,
 		setup.KyvernoClient,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		polexCache,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {
@@ -316,6 +318,9 @@ func main() {
 			var wg sync.WaitGroup
 			for _, controller := range leaderControllers {
 				controller.Run(ctx, logger.WithName("controllers"), &wg)
+			}
+			if polexController != nil {
+				polexController.Run(ctx, setup.Logger, &wg)
 			}
 			// wait all controllers shut down
 			wg.Wait()
