@@ -9,6 +9,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -29,13 +30,18 @@ const (
 	LabelDomainPolicy                    = "pol.kyverno.io"
 	LabelPrefixClusterPolicy             = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy                    = LabelDomainPolicy + "/"
+	LabelPrefixPolicyException           = "polex.kyverno.io/"
 	LabelPrefixValidatingAdmissionPolicy = "validatingadmissionpolicy.apiserver.io/"
 	//	aggregated admission report label
 	LabelAggregatedReport = "audit.kyverno.io/report.aggregate"
 )
 
 func IsPolicyLabel(label string) bool {
-	return strings.HasPrefix(label, LabelPrefixPolicy) || strings.HasPrefix(label, LabelPrefixClusterPolicy)
+	return strings.HasPrefix(label, LabelPrefixPolicy) || strings.HasPrefix(label, LabelPrefixClusterPolicy) || strings.HasPrefix(label, LabelPrefixPolicyException)
+}
+
+func PolicyExceptionLabel(exception kyvernov2alpha1.PolicyException) string {
+	return LabelPrefixPolicyException + exception.GetName()
 }
 
 func PolicyNameFromLabel(namespace, label string) (string, error) {
@@ -127,6 +133,10 @@ func SetResourceVersionLabels(report kyvernov1alpha2.ReportInterface, resource *
 
 func SetPolicyLabel(report kyvernov1alpha2.ReportInterface, policy kyvernov1.PolicyInterface) {
 	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
+}
+
+func SetPolicyExceptionLabel(report kyvernov1alpha2.ReportInterface, exception kyvernov2alpha1.PolicyException) {
+	controllerutils.SetLabel(report, PolicyExceptionLabel(exception), exception.GetResourceVersion())
 }
 
 func GetResourceUid(report metav1.Object) types.UID {

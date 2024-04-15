@@ -4,10 +4,13 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	kyvernov2alpha1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2alpha1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -19,6 +22,20 @@ func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 		return false
 	}
 	return true
+}
+
+func FetchPolicyExceptions(polexLister kyvernov2alpha1listers.PolicyExceptionLister, namespace string) ([]kyvernov2alpha1.PolicyException, error) {
+	var exceptions []kyvernov2alpha1.PolicyException
+	if polexs, err := polexLister.PolicyExceptions(namespace).List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, polex := range polexs {
+			if polex.Spec.BackgroundProcessingEnabled() {
+				exceptions = append(exceptions, *polex)
+			}
+		}
+	}
+	return exceptions, nil
 }
 
 func BuildKindSet(logger logr.Logger, policies ...kyvernov1.PolicyInterface) sets.Set[string] {
