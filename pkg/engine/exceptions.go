@@ -17,17 +17,7 @@ func findExceptions(
 	if selector == nil {
 		return nil, nil
 	}
-	// polexs, err := selector.List(labels.Everything())
-	policyName := cache.MetaObjectToName(policy).String()
-	polexs, err := selector.Find(policyName, rule)
-	if err != nil {
-		return nil, err
-	}
-	var result []*kyvernov2alpha1.PolicyException
-	for _, polex := range polexs {
-		result = append(result, polex)
-	}
-	return result, nil
+	return selector.Find(cache.MetaObjectToName(policy).String(), rule)
 }
 
 // matchesException checks if an exception applies to the resource being admitted
