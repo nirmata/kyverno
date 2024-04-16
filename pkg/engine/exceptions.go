@@ -6,7 +6,6 @@ import (
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -18,16 +17,15 @@ func findExceptions(
 	if selector == nil {
 		return nil, nil
 	}
-	polexs, err := selector.List(labels.Everything())
+	// polexs, err := selector.List(labels.Everything())
+	policyName := cache.MetaObjectToName(policy).String()
+	polexs, err := selector.Find(policyName, rule)
 	if err != nil {
 		return nil, err
 	}
 	var result []*kyvernov2alpha1.PolicyException
-	policyName := cache.MetaObjectToName(policy).String()
 	for _, polex := range polexs {
-		if polex.Contains(policyName, rule) {
-			result = append(result, polex)
-		}
+		result = append(result, polex)
 	}
 	return result, nil
 }
