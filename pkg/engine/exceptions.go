@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"fmt"
-
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
@@ -25,10 +23,7 @@ func findExceptions(
 		return nil, err
 	}
 	var result []*kyvernov2alpha1.PolicyException
-	policyName, err := cache.MetaNamespaceKeyFunc(policy)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compute policy key: %w", err)
-	}
+	policyName := cache.MetaObjectToName(policy).String()
 	for _, polex := range polexs {
 		if polex.Contains(policyName, rule) {
 			result = append(result, polex)
