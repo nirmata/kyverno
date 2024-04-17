@@ -155,6 +155,7 @@ func main() {
 	)
 	// this controller only subscribe to events, nothing is returned...
 	var wg sync.WaitGroup
+	polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 	policymetricscontroller.NewController(
 		setup.MetricsManager,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
@@ -172,6 +173,7 @@ func main() {
 		setup.KubeClient,
 		setup.KyvernoClient,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		polexCache,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer) {
@@ -230,6 +232,9 @@ func main() {
 	if err != nil {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
+	}
+	if polexController != nil {
+		polexController.Run(signalCtx, setup.Logger, &wg)
 	}
 	// start leader election
 	le.Run(signalCtx)

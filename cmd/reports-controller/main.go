@@ -57,6 +57,7 @@ func createReportControllers(
 	var ctrls []internal.Controller
 	var warmups []func(context.Context) error
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
+	kyvernoV2alpha1 := kyvernoInformer.Kyverno().V2alpha1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
 			client,
@@ -104,6 +105,7 @@ func createReportControllers(
 					metadataFactory,
 					kyvernoV1.Policies(),
 					kyvernoV1.ClusterPolicies(),
+					kyvernoV2alpha1.PolicyExceptions(),
 					kubeInformer.Core().V1().Namespaces(),
 					resourceReportController,
 					backgroundScanInterval,
@@ -227,6 +229,7 @@ func main() {
 	}
 	// informer factories
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, resyncPeriod)
+	polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 	omitEventsValues := strings.Split(omitEvents, ",")
 	if omitEvents == "" {
 		omitEventsValues = []string{}
@@ -251,6 +254,7 @@ func main() {
 		setup.KubeClient,
 		setup.KyvernoClient,
 		apicall.NewAPICallConfiguration(maxAPICallResponseLength),
+		polexCache,
 	)
 	// start informers and wait for cache sync
 	if !internal.StartInformersAndWaitForCacheSync(ctx, setup.Logger, kyvernoInformer) {
@@ -325,6 +329,9 @@ func main() {
 	if err != nil {
 		setup.Logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
+	}
+	if polexController != nil {
+		polexController.Run(ctx, setup.Logger, &wg)
 	}
 	le.Run(ctx)
 	sdown()
