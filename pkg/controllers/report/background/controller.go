@@ -2,7 +2,6 @@ package background
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -23,7 +22,6 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/logging"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -313,12 +311,7 @@ func (c *controller) reconcileReport(
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
 		for _, exception := range exceptions {
-			exception.SetName("")
-			exception.Kind = "PolicyException"
-			exception.APIVersion = "kyverno.io/v2alpha1" // doesnt work with just setting these two
-			log := logging.GlobalLogger()
-			log.Info(fmt.Sprintf("whole: %+v", exception))
-			key := exception.Namespace + "/" + exception.Name // "default/mynewpolex"
+			key := cache.MetaObjectToName(&exception).String()
 			policyNameToLabel[key] = reportutils.PolicyExceptionLabel(exception)
 		}
 		for _, result := range observed.GetResults() {

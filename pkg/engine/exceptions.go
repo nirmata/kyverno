@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"fmt"
-
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
@@ -71,9 +69,7 @@ func (e *engine) hasPolicyExceptions(
 	if exception == nil {
 		return nil
 	}
-	logger.Info("EXCEPTIONS.GO for cache func: ", fmt.Sprintf("%+v", exception))
 	key, err := cache.MetaNamespaceKeyFunc(exception)
-	logger.Info("KEY: ", key)
 	if err != nil {
 		logger.Error(err, "failed to compute policy exception key", "namespace", exception.GetNamespace(), "name", exception.GetName())
 		return engineapi.RuleError(rule.Name, ruleType, "failed to compute exception key", err)
