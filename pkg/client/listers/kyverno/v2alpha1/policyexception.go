@@ -19,7 +19,10 @@ limitations under the License.
 package v2alpha1
 
 import (
+	"fmt"
+
 	v2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -81,6 +84,12 @@ type policyExceptionNamespaceLister struct {
 // List lists all PolicyExceptions in the indexer for a given namespace.
 func (s policyExceptionNamespaceLister) List(selector labels.Selector) (ret []*v2alpha1.PolicyException, err error) {
 	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
+		log := logging.GlobalLogger()
+		printm := fmt.Sprintf("%+v",m)
+		log.Info("\n\n\nSTOP IN LIST\n\n\n")
+		log.Info(printm)
+		why := m.(*v2alpha1.PolicyException)
+		log.Info(fmt.Sprintf("%+v",*why))
 		ret = append(ret, m.(*v2alpha1.PolicyException))
 	})
 	return ret, err
