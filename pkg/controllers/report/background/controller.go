@@ -311,10 +311,8 @@ func (c *controller) reconcileReport(
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
 		for _, exception := range exceptions {
-			key, err := cache.MetaNamespaceKeyFunc(exception)
-			if err != nil {
-				return err
-			}
+			exceptionCopy := exception // resolves lint error
+			key := cache.MetaObjectToName(&exceptionCopy).String()
 			policyNameToLabel[key] = reportutils.PolicyExceptionLabel(exception)
 		}
 		for _, result := range observed.GetResults() {
