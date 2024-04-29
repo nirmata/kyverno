@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 func CanBackgroundProcess(p kyvernov1.PolicyInterface) bool {
@@ -57,17 +58,25 @@ func RemoveNonValidationPolicies(policies ...kyvernov1.PolicyInterface) []kyvern
 	return validationPolicies
 }
 
-func FetchPolicyExceptions(polexLister kyvernov2alpha1listers.PolicyExceptionLister, namespace string) ([]kyvernov2alpha1.PolicyException, error) {
-	var exceptions []kyvernov2alpha1.PolicyException
-	if polexs, err := polexLister.PolicyExceptions(namespace).List(labels.Everything()); err != nil {
+func FetchPolicyExceptions(polexLister kyvernov2alpha1listers.PolicyExceptionLister, nsLister corev1listers.NamespaceLister) ([]kyvernov2alpha1.PolicyException, error) {
+	namespaces, err := nsLister.List(labels.Everything())
+	if err != nil {
 		return nil, err
-	} else {
-		for _, polex := range polexs {
-			if polex.Spec.BackgroundProcessingEnabled() {
-				exceptions = append(exceptions, *polex)
+	}
+
+	var exceptions []kyvernov2alpha1.PolicyException
+	for _, ns := range namespaces {
+		if polexs, err := polexLister.PolicyExceptions(ns.GetName()).List(labels.Everything()); err != nil {
+			return nil, err
+		} else {
+			for _, polex := range polexs {
+				if polex.Spec.BackgroundProcessingEnabled() {
+					exceptions = append(exceptions, *polex)
+				}
 			}
 		}
 	}
+
 	return exceptions, nil
 }
 

@@ -431,7 +431,7 @@ func (c *controller) reconcile(ctx context.Context, log logr.Logger, key, namesp
 		return err
 	}
 	// load policy exceptions with background process enabled
-	exceptions, err := utils.FetchPolicyExceptions(c.polexLister, namespace)
+	exceptions, err := utils.FetchPolicyExceptions(c.polexLister, c.nsLister)
 	if err != nil {
 		return err
 	}
