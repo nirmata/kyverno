@@ -50,6 +50,7 @@ func Setup(logFormat string, level int) error {
 	switch logFormat {
 	case TextFormat:
 		// in text mode we use FormatSerialize format
+		//nolint:staticcheck
 		globalLog = klogr.New()
 	case JSONFormat:
 		zc := zap.NewProductionConfig()
