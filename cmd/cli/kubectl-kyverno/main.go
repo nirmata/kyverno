@@ -60,7 +60,6 @@ func configurelog(cli *cobra.Command) {
 
 	klog.InitFlags(nil)
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-	//nolint:staticcheck
 	log.SetLogger(klogr.New())
 
 	_ = cli.PersistentFlags().MarkHidden("alsologtostderr")
