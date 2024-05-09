@@ -3555,8 +3555,8 @@ github.com/sigstore/fulcio v0.1.2-0.20210831152525-42f7422734bb/go.mod h1:LznI5A
 github.com/sigstore/fulcio v0.6.0/go.mod h1:lwxzHDYYQ0lVVWqaj68ZQNkcP847aoF7AIa7ra9rRqA=
 github.com/sigstore/fulcio v1.4.3 h1:9JcUCZjjVhRF9fmhVuz6i1RyhCc/EGCD7MOl+iqCJLQ=
 github.com/sigstore/fulcio v1.4.3/go.mod h1:BQPWo7cfxmJwgaHlphUHUpFkp5+YxeJes82oo39m5og=
-github.com/sigstore/k8s-manifest-sigstore v0.5.2 h1:9whTtk3idmyixkReYocyVu6bSoKSaf+vbbWTqnJRUKA=
-github.com/sigstore/k8s-manifest-sigstore v0.5.2/go.mod h1:mdTJObSVK+eL5Rl35+ytH/t9/U+o8tCHY/obkHbiYUw=
+github.com/sigstore/k8s-manifest-sigstore v0.5.4 h1:XPLs7Dz2OXkRdt4sgAoLxuyNSfkb/n5SwfnYb23YlRk=
+github.com/sigstore/k8s-manifest-sigstore v0.5.4/go.mod h1:VN/nxjuAprSy1LrutFdhc5UsrQjij4DaCYV4Wklu5zo=
 github.com/sigstore/rekor v0.3.1-0.20211117161348-09070aa96aef/go.mod h1:pU8CqroYfpVyklvAn2g6TrJrlyLYNlUlqPT5Kgrkw2E=
 github.com/sigstore/rekor v1.1.1/go.mod h1:x/xK+HK08MiuJv+v4OxY/Oo3bhuz1DtJXNJrV7hrzvs=
 github.com/sigstore/rekor v1.3.5 h1:QoVXcS7NppKY+rpbEFVHr4evGDZBBSh65X0g8PXoUkQ=
