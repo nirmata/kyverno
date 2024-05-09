@@ -379,4 +379,5 @@ require (
 replace (
 	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20230204162932-3ee946b9433d
 	github.com/sigstore/cosign => github.com/kyverno/cosign v0.0.0-20231220065711-f7ceed837396
+	github.com/sigstore/cosign/v2 v2.2.4 => github.com/kyverno/cosign/v2 v2.2.4-deps-fix
 )
