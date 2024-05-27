@@ -29,7 +29,7 @@ spec:
     try:
     - script:
         content: |
-          kubectl create secret docker-registry regcred --docker-username=kyverno --docker-password=$GITHUB_TOKEN --docker-server=ghcr.io -n kyverno
+          kubectl create secret docker-registry regcred --docker-username=nirmata --docker-password=$GITHUB_TOKEN --docker-server=ghcr.io -n kyverno
   - name: step-05
     try:
     - apply:
