@@ -70,17 +70,19 @@ func sanityChecks(apiserverClient apiserver.Interface) error {
 
 func main() {
 	var (
-		dumpPayload              bool
-		serverIP                 string
-		servicePort              int
-		webhookServerPort        int
-		maxQueuedEvents          int
-		interval                 time.Duration
-		renewBefore              time.Duration
-		maxAPICallResponseLength int64
+		dumpPayload                  bool
+		disableAutoWebhookGeneration bool
+		serverIP                     string
+		servicePort                  int
+		webhookServerPort            int
+		maxQueuedEvents              int
+		interval                     time.Duration
+		renewBefore                  time.Duration
+		maxAPICallResponseLength     int64
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
+	flagset.BoolVar(&disableAutoWebhookGeneration, "disableAutoWebhookGeneration", false, "Set this flag to disable automatic webhook generation.")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.IntVar(&webhookServerPort, "webhookServerPort", 9443, "Port used by the webhook server.")
@@ -254,6 +256,7 @@ func main() {
 					genericwebhookcontroller.None,
 					setup.Configuration,
 					caSecretName,
+					disableAutoWebhookGeneration,
 				),
 				webhookWorkers,
 			)
@@ -294,6 +297,7 @@ func main() {
 					genericwebhookcontroller.None,
 					setup.Configuration,
 					caSecretName,
+					disableAutoWebhookGeneration,
 				),
 				webhookWorkers,
 			)

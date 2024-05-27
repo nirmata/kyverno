@@ -119,6 +119,7 @@ func createrLeaderControllers(
 	webhookServerPort int32,
 	configuration config.Configuration,
 	eventGenerator event.Interface,
+	disableAutoWebhookGeneration bool,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
 
@@ -153,6 +154,7 @@ func createrLeaderControllers(
 		runtime,
 		configuration,
 		caSecretName,
+		disableAutoWebhookGeneration,
 	)
 	exceptionWebhookController := genericwebhookcontroller.NewController(
 		exceptionWebhookControllerName,
@@ -180,6 +182,7 @@ func createrLeaderControllers(
 		genericwebhookcontroller.None,
 		configuration,
 		caSecretName,
+		disableAutoWebhookGeneration,
 	)
 	gctxWebhookController := genericwebhookcontroller.NewController(
 		gctxWebhookControllerName,
@@ -207,6 +210,7 @@ func createrLeaderControllers(
 		genericwebhookcontroller.None,
 		configuration,
 		caSecretName,
+		disableAutoWebhookGeneration,
 	)
 	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
@@ -245,6 +249,7 @@ func main() {
 		dumpPayload                  bool
 		servicePort                  int
 		webhookServerPort            int
+		disableAutoWebhookGeneration bool
 		backgroundServiceAccountName string
 		maxAPICallResponseLength     int64
 		renewBefore                  time.Duration
@@ -258,6 +263,7 @@ func main() {
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
 	flagset.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flagset.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
+	flagset.BoolVar(&disableAutoWebhookGeneration, "disableAutoWebhookGeneration", false, "Set this flag to disable automatic webhook generation.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
@@ -468,6 +474,7 @@ func main() {
 				int32(webhookServerPort),
 				setup.Configuration,
 				eventGenerator,
+				disableAutoWebhookGeneration,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")

@@ -23,7 +23,7 @@ spec:
         - certificates:
             cert: '{{ keys.data.certificate }}'
       imageReferences:
-      - ghcr.io/kyverno/test-verify-image-private*
+      - ghcr.io/nirmata/test-verify-image-private*
       imageRegistryCredentials:
         secrets:
         - regcred
