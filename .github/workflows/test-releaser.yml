@@ -5,14 +5,9 @@ name: test-releaser
 permissions: {}
 
 on:
-  push:
-    tags:
-      - 'v*'
   pull_request:
     branches:
-      - 'main'
-      - 'release*'
-  
+      - 'main'  
 
 jobs:
   release-images:
