@@ -46,11 +46,6 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
-      - name: Checkout repository
-        uses: nirmata/checkout@v3.3.1
-        with:
-          fetch-depth: 0
-          lfs: true
       - name: image scanning
         id: scan
         uses: nirmata/reusable-workflows/.github/actions/image-scanning@main
