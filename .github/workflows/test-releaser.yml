@@ -5,6 +5,9 @@ name: test-releaser
 permissions: {}
 
 on:
+  push:
+    branches:
+      - 'main'
   pull_request:
     branches:
       - 'main'  
