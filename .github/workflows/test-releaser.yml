@@ -5,9 +5,9 @@ name: test-releaser
 permissions: {}
 
 on:
-  pull_request:
+  push:
     branches:
-      - 'main'  
+      - 'main'
 
 jobs:
   release-images:
@@ -25,6 +25,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+        
       - name: Setup caches
         uses: ./.github/actions/setup-caches
         timeout-minutes: 5
@@ -42,11 +43,6 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
-      - name: Checkout repository
-        uses: nirmata/checkout@v3.3.1
-        with:
-          fetch-depth: 0
-          lfs: true
       - name: image scanning
         id: scan
         uses: nirmata/reusable-workflows/.github/actions/image-scanning@main
