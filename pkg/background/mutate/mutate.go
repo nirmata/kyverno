@@ -2,7 +2,6 @@ package mutate
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -15,11 +14,9 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"go.uber.org/multierr"
-	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -166,13 +163,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
 			case engineapi.RuleStatusPass:
-
-				patchedNew, err := addAnnotation(policy, patched, r)
-				if err != nil {
-					logger.Error(err, "failed to apply patches")
-					errs = append(errs, err)
-				}
-
+				patchedNew := patched
 				if patchedNew == nil {
 					logger.Error(ErrEmptyPatch, "", "rule", r.Name(), "message", r.Message())
 					errs = append(errs, err)
@@ -254,57 +245,4 @@ func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov1bet
 		}
 	}
 	return nil
-}
-
-func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstructured, r engineapi.RuleResponse) (patchedNew *unstructured.Unstructured, err error) {
-	if patched == nil {
-		return
-	}
-
-	patchedNew = patched
-	var rulePatches []utils.RulePatch
-
-	for _, patch := range r.Patches() {
-		var patchmap map[string]interface{}
-		if err := json.Unmarshal(patch, &patchmap); err != nil {
-			return nil, fmt.Errorf("failed to parse JSON patch bytes: %v", err)
-		}
-
-		rp := struct {
-			RuleName string `json:"rulename"`
-			Op       string `json:"op"`
-			Path     string `json:"path"`
-		}{
-			RuleName: r.Name(),
-			Op:       patchmap["op"].(string),
-			Path:     patchmap["path"].(string),
-		}
-
-		rulePatches = append(rulePatches, rp)
-	}
-
-	annotationContent := make(map[string]string)
-	policyName := policy.GetName()
-	if policy.GetNamespace() != "" {
-		policyName = policy.GetNamespace() + "/" + policy.GetName()
-	}
-
-	for _, rulePatch := range rulePatches {
-		annotationContent[rulePatch.RuleName+"."+policyName+".kyverno.io"] = utils.OperationToPastTense[rulePatch.Op] + " " + rulePatch.Path
-	}
-
-	if len(annotationContent) == 0 {
-		return
-	}
-
-	result, _ := yamlv2.Marshal(annotationContent)
-
-	ann := patchedNew.GetAnnotations()
-	if ann == nil {
-		ann = make(map[string]string)
-	}
-	ann[utils.PolicyAnnotation] = string(result)
-	patchedNew.SetAnnotations(ann)
-
-	return
 }
