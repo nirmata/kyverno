@@ -1,7 +1,7 @@
 name: Nightly Scan
 on:
   schedule:
-    - cron: "*/5 * * *" # UTC
+    - cron: "*/5 * * * *" # UTC
 
 env:
   REGISTRY: ghcr.io
