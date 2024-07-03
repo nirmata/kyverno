@@ -263,7 +263,7 @@ build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller b
 ##############
 
 LOCAL_PLATFORM      := linux/$(GOARCH)
-KO_REGISTRY         := ko.local
+KO_REGISTRY         ?= ko.local
 ifndef VERSION
 KO_TAGS             := $(GIT_SHA)
 else ifeq ($(VERSION),main)

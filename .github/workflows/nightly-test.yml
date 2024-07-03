@@ -1,0 +1,63 @@
+name: Nightly Scan
+on:
+  schedule:
+    - cron: "*/5 * * *" # UTC
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  publish-scan-branch:
+    name: Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        branch:
+          - main
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ matrix.branch }}
+
+      - name: Setup Go
+        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Set Image name
+        run: |
+          echo IMAGE_NAME="nirmata/nightly-kyverno-${{ matrix.branch }}" >> $GITHUB_ENV
+      
+      - name: Install KO
+        uses: ko-build/setup-ko@3aebd0597dc1e9d1a26bcfdb7cbeb19c131d3037 # v0.7
+
+      # - name: Log into registry ${{env.REGISTRY}}
+      #   uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446 # v3.2.0
+      #   with:
+      #     registry: ${{env.REGISTRY}}
+      #     username: ${{github.actor}}
+      #     password: ${{secrets.GITHUB_TOKEN}}
+
+
+      - name: Build and Push 
+        run: |
+          make ko-build-kyverno KO_DOCKER_REPO=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: image scanning
+        id: scan
+        uses: nirmata/reusable-workflows/.github/actions/image-scanning@cleanup
+        with:
+          pcc_url: ${{ secrets.PCC_URL }}
+          pcc_user: ${{ secrets.PCC_USER }}
+          pcc_pass: ${{ secrets.PCC_PASS }}
+          image_name: ${{env.REGISTRY}}/${{env.IMAGE_NAME}}
+          free-disk: 'true'
+
+ 
