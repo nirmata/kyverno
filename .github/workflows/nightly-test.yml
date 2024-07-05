@@ -47,9 +47,17 @@ jobs:
         run: |
           make ko-build-kyverno KO_DOCKER_REPO=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
+      - name: Authenticate with repository 
+        uses: octokit/request-action@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: 'nirmata/reusable-workflows'
+          path:  /repos/nirmata/reusable-workflows/.github/actions/image-scanning/action.yml
+          method: GET
+
       - name: image scanning
         id: scan
-        uses: nirmata/reusable-workflows/.github/actions/image-scanning@cleanup
+        uses: ./.github/actions/image-scanning@main
         with:
           pcc_url: ${{ secrets.PCC_URL }}
           pcc_user: ${{ secrets.PCC_USER }}
