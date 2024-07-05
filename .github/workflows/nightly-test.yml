@@ -1,7 +1,7 @@
 name: Nightly Scan
 on:
   schedule:
-    - cron: "*/5 * * * *" # UTC
+    - cron: "*/10 * * * *" # UTC
 
 env:
   REGISTRY: ghcr.io
@@ -57,7 +57,7 @@ jobs:
 
       - name: image scanning
         id: scan
-        uses: ./.github/actions/image-scanning@main
+        uses: nirmata/reusable-workflows/.github/actions/image-scanning@main
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           pcc_url: ${{ secrets.PCC_URL }}
