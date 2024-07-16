@@ -421,6 +421,15 @@ OuterLoop:
 		}
 	}
 
+	if c.Client != nil && len(namespaceLabels) == 0 && c.Resource.GetKind() != "Namespace" {
+		ns, err := c.Client.GetResource(context.TODO(), "v1", "Namespace", "", c.Resource.GetNamespace())
+		if err != nil {
+			log.Log.Error(err, "failed to get the resource's namespace")
+			return nil, fmt.Errorf("failed to get the resource's namespace (%w)", err)
+		}
+		namespaceLabels = ns.GetLabels()
+	}
+
 	resPath := fmt.Sprintf("%s/%s/%s", c.Resource.GetNamespace(), c.Resource.GetKind(), c.Resource.GetName())
 	log.Log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
 
