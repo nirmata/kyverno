@@ -98,14 +98,6 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
-  - apiGroups:
-      - '*'
-    resources:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
 {{- with .Values.admissionController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
