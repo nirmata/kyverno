@@ -74,7 +74,10 @@ rules:
       - update
       - patch
       - delete
-{{- with .Values.backgroundController.rbac.clusterRole.extraResources }}
+{{- with .Values.admissionController.rbac.coreClusterRole.extraResources }}
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with .Values.admissionController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
