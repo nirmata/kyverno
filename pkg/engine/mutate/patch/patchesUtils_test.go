@@ -132,7 +132,6 @@ var overlayBytes = []byte(`
 }
 `)
 
-
 func Test_ignorePath(t *testing.T) {
 	tests := []struct {
 		path   string
