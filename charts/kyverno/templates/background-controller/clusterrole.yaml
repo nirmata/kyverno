@@ -19,14 +19,6 @@ metadata:
     {{- include "kyverno.background-controller.labels" . | nindent 4 }}
 rules:
   - apiGroups:
-      - '*'
-    resources:
-      - '*'
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
       - kyverno.io
     resources:
       - updaterequests
@@ -82,6 +74,9 @@ rules:
       - update
       - patch
       - delete
+{{- with .Values.backgroundController.rbac.coreClusterRole.extraResources }}
+  {{- toYaml . | nindent 2 }}
+{{- end }}
 {{- with .Values.backgroundController.rbac.clusterRole.extraResources }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
