@@ -530,7 +530,7 @@ jobs:
         with:
           build-cache-key: run-conformance
       - name: Create kind cluster and setup Sigstore Scaffolding
-        uses: sigstore/scaffolding/actions/setup@d9197cb16e744297de67cfeef8a8e247d31206c4
+        uses: sigstore/scaffolding/actions/setup@26f31cb72ca848bb0273fcbd7a4ebf187ec4d711
         with:
           version: 'v0.6.8'
           k8s-version: ${{ matrix.k8s-version.version }}
