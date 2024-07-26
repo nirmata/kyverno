@@ -25,6 +25,7 @@ import (
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	vapcontroller "github.com/kyverno/kyverno/pkg/controllers/validatingadmissionpolicy-generate"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
+	"github.com/kyverno/kyverno/pkg/d4f"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -34,6 +35,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/validatingadmissionpolicy"
@@ -121,7 +123,6 @@ func createrLeaderControllers(
 	eventGenerator event.Interface,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
-
 	certManager := certmanager.NewController(
 		caInformer,
 		tlsInformer,
@@ -220,7 +221,7 @@ func createrLeaderControllers(
 			kyvernoClient,
 			dynamicClient.Discovery(),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			kyvernoInformer.Kyverno().V2beta1().PolicyExceptions(),
+			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicies(),
 			kubeInformer.Admissionregistration().V1alpha1().ValidatingAdmissionPolicyBindings(),
 			eventGenerator,
@@ -250,6 +251,7 @@ func main() {
 		renewBefore                  time.Duration
 		maxAuditWorkers              int
 		maxAuditCapacity             int
+		maxAdmissionReports          int
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -272,6 +274,7 @@ func main() {
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
 	flagset.IntVar(&maxAuditWorkers, "maxAuditWorkers", 8, "Maximum number of workers for audit policy processing")
 	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
+	flagset.IntVar(&maxAdmissionReports, "maxAdmissionReports", 10000, "Maximum number of admission reports before we stop creating new ones")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -290,6 +293,7 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithEventsClient(),
 		internal.WithApiServerClient(),
+		internal.WithMetadataClient(),
 		internal.WithFlagSets(flagset),
 	)
 	// parse flags
@@ -501,16 +505,30 @@ func main() {
 			setup.Logger.Error(err, "failed to initialize leader election")
 			os.Exit(1)
 		}
+		urGenerator := generator.NewUpdateRequestGenerator(setup.Configuration, setup.MetadataClient)
 		// create webhooks server
 		urgen := webhookgenerate.NewGenerator(
 			setup.KyvernoClient,
-			kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+			kyvernoInformer.Kyverno().V2().UpdateRequests(),
+			urGenerator,
 		)
 		policyHandlers := webhookspolicy.NewHandlers(
 			setup.KyvernoDynamicClient,
 			setup.KyvernoClient,
 			backgroundServiceAccountName,
 		)
+		ephrs, err := StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+		if err != nil {
+			setup.Logger.Error(errors.New("failed to start admission reports watcher"), "failed to start admission reports watcher")
+			os.Exit(1)
+		}
+		reportsBreaker := d4f.NewBreaker("admission reports", func(context.Context) bool {
+			count, isRunning := ephrs.Count()
+			if !isRunning {
+				return true
+			}
+			return count > maxAdmissionReports
+		})
 		resourceHandlers := webhooksresource.NewHandlers(
 			engine,
 			setup.KyvernoDynamicClient,
@@ -519,7 +537,7 @@ func main() {
 			setup.MetricsManager,
 			policyCache,
 			kubeInformer.Core().V1().Namespaces().Lister(),
-			kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
+			kyvernoInformer.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
 			urgen,
@@ -529,6 +547,7 @@ func main() {
 			setup.Jp,
 			maxAuditWorkers,
 			maxAuditCapacity,
+			reportsBreaker,
 		)
 		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
