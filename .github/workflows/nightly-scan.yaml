@@ -1,0 +1,90 @@
+name: Nightly Scan
+on:
+  workflow_dispatch:
+    inputs:
+  schedule:
+    - cron: "0 4 * * *" # UTC
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  nightly-scan-branch:
+    name: Publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    strategy:
+      matrix:
+        branch:
+          - release-1.11-n4k
+          - release-1.10-n4k
+      fail-fast: false
+
+    steps:
+      - name: Checkout ${{ matrix.branch }}
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          ref: ${{ matrix.branch }}
+          fetch-depth: 0
+          lfs: true
+
+      - name: Get latest tag on branch
+        shell: bash
+        run: |
+          BRANCH_NAME=${{ matrix.branch }}  
+          LATEST_TAG=$(git tag --merged ${BRANCH_NAME} --sort=-creatordate | head -n 1)
+          echo "IMAGE_TAG=${LATEST_TAG}" >> $GITHUB_ENV
+
+      - name: Log into registry ${{env.REGISTRY}}
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: ${{env.REGISTRY}}
+          username: ${{github.actor}}
+          password: ${{secrets.GITHUB_TOKEN}}
+
+      
+      - name: Set Image name
+        run: |
+          echo IMAGE_NAME="ghcr.io/nirmata/kyverno:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
+
+      - name: Scan image using grype
+        id: grype-scan
+        uses: anchore/scan-action@v3
+        with:
+          image: ${{ env.IMAGE_NAME }}
+          severity-cutoff: low
+          fail-build: true
+
+      - name: Scan image using trivy
+        uses: aquasecurity/trivy-action@master
+        id: trivy-scan
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}
+          format: 'json'
+          output: 'trivy-scan.json'
+          exit-code: '1'
+
+      - name: Convert trivy json file to tabular form
+        uses: aquasecurity/trivy-action@0.12.0
+        if: always() && steps.trivy-scan.conclusion == 'failure'
+        with:
+          scan-type: convert
+          vuln-type: ""
+          image-ref: trivy-scan.json
+          format: table
+          output: trivy-scan.txt
+
+      - name: Cat trivy/grype scan file if status == failure
+        if: always() && (steps.trivy-scan.conclusion == 'failure' || steps.grype-scan.conclusion == 'failure')
+        shell: bash
+        run: |
+          echo "====trivy-scan-txt===="
+          [ -s "trivy-scan.txt" ] && cat trivy-scan.txt
+          echo "====trivy-scan-json===="
+          [ -s "trivy-scan-json" ] && cat trivy-scan-json
+          echo "====grype-scan===="
+          cat ${{ steps.grype-scan.outputs.sarif }}
+          exit 1  
