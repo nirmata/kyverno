@@ -1,9 +1,12 @@
 package context
 
 import (
+	cont "context"
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/kyverno/kyverno/pkg/toggle"
 
 	jsoniter "github.com/json-iterator/go"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -302,7 +305,9 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg confi
 		cfg:      cfg,
 	}
 	dl, err := NewDeferredLoader("images", imageInfoLoader, logger)
-
+	if err != nil {
+		return err
+	}
 	if toggle.FromContext(cont.Background()).EnableDeferredLoading() {
 		if err := ctx.AddDeferredLoader(dl); err != nil {
 			return err
@@ -381,12 +386,12 @@ func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured,
 }
 
 func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
-		// force load of image info from deferred loader
-		if len(ctx.images) == 0 {
-			if err := ctx.loadDeferred("images"); err != nil {
-				return map[string]map[string]apiutils.ImageInfo{}
-			}
+	// force load of image info from deferred loader
+	if len(ctx.images) == 0 {
+		if err := ctx.loadDeferred("images"); err != nil {
+			return map[string]map[string]apiutils.ImageInfo{}
 		}
+	}
 	return ctx.images
 }
 
