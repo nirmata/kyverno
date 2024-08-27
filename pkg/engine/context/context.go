@@ -304,11 +304,45 @@ func (ctx *context) AddImageInfo(info apiutils.ImageInfo, cfg config.Configurati
 }
 
 func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg config.Configuration) error {
-	images, err := apiutils.ExtractImagesFromResource(*resource, nil, cfg)
+	imageInfoLoader := &ImageInfoLoader{
+		resource: resource,
+		eCtx:     ctx,
+		cfg:      cfg,
+	}
+	dl, err := NewDeferredLoader("images", imageInfoLoader, logger)
 	if err != nil {
 		return err
 	}
-	return ctx.addImageInfos(images)
+	if toggle.FromContext(cont.Background()).EnableDeferredLoading() {
+		if err := ctx.AddDeferredLoader(dl); err != nil {
+			return err
+		}
+	} else {
+		if err := imageInfoLoader.LoadData(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type ImageInfoLoader struct {
+	resource  *unstructured.Unstructured
+	hasLoaded bool
+	eCtx      *context
+	cfg       config.Configuration
+}
+
+func (l *ImageInfoLoader) HasLoaded() bool {
+	return l.hasLoaded
+}
+
+func (l *ImageInfoLoader) LoadData() error {
+	images, err := apiutils.ExtractImagesFromResource(*l.resource, nil, l.cfg)
+	if err != nil {
+		return err
+	}
+
+	return l.eCtx.addImageInfos(images)
 }
 
 func (ctx *context) addImageInfos(images map[string]map[string]apiutils.ImageInfo) error {
@@ -361,6 +395,12 @@ func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured,
 }
 
 func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
+		// force load of image info from deferred loader
+		if len(ctx.images) == 0 {
+			if err := ctx.loadDeferred("images"); err != nil {
+				return map[string]map[string]apiutils.ImageInfo{}
+			}
+		}
 	return ctx.images
 }
 
