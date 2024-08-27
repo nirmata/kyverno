@@ -1,6 +1,7 @@
 package context
 
 import (
+	cont "context"
 	"encoding/csv"
 	"fmt"
 	"regexp"
@@ -13,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -395,12 +397,12 @@ func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured,
 }
 
 func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
-		// force load of image info from deferred loader
-		if len(ctx.images) == 0 {
-			if err := ctx.loadDeferred("images"); err != nil {
-				return map[string]map[string]apiutils.ImageInfo{}
-			}
+	// force load of image info from deferred loader
+	if len(ctx.images) == 0 {
+		if err := ctx.loadDeferred("images"); err != nil {
+			return map[string]map[string]apiutils.ImageInfo{}
 		}
+	}
 	return ctx.images
 }
 
