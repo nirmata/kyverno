@@ -1,7 +1,6 @@
 package context
 
 import (
-	cont "context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -308,7 +307,7 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg confi
 	if err != nil {
 		return err
 	}
-	if toggle.FromContext(cont.Background()).EnableDeferredLoading() {
+	if toggle.EnableDeferredLoading.Enabled() {
 		if err := ctx.AddDeferredLoader(dl); err != nil {
 			return err
 		}
@@ -354,21 +353,21 @@ func (l *ImageInfoLoader) HasLoaded() bool {
 }
 
 func (l *ImageInfoLoader) LoadData() error {
-	images, err := apiutils.ExtractImagesFromResource(*resource, nil, cfg)
+	images, err := apiutils.ExtractImagesFromResource(*l.resource, nil, l.cfg)
 	if err != nil {
 		return err
 	}
 	if len(images) == 0 {
 		return nil
 	}
-	ctx.images = images
+	l.eCtx.images = images
 	utm, err := convertImagesToUntyped(images)
 	if err != nil {
 		return err
 	}
 
 	logging.V(4).Info("updated image info", "images", utm)
-	return addToContext(ctx, utm, "images")
+	return addToContext(l.eCtx, utm, "images")
 }
 
 func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kyvernov1.ImageExtractorConfigs, cfg config.Configuration) (map[string]map[string]apiutils.ImageInfo, error) {

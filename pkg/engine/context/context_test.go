@@ -7,8 +7,9 @@ import (
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	authenticationv1 "k8s.io/api/authentication/v1"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/stretchr/testify/assert"
+	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
 var (
