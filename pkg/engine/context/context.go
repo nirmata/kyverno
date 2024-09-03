@@ -5,8 +5,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kyverno/kyverno/pkg/toggle"
-
 	jsoniter "github.com/json-iterator/go"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -14,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
