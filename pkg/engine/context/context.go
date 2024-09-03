@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -296,21 +297,25 @@ func (ctx *context) AddImageInfo(info apiutils.ImageInfo, cfg config.Configurati
 }
 
 func (ctx *context) AddImageInfos(resource *unstructured.Unstructured, cfg config.Configuration) error {
-	images, err := apiutils.ExtractImagesFromResource(*resource, nil, cfg)
+	imageInfoLoader := &ImageInfoLoader{
+		resource: resource,
+		eCtx:     ctx,
+		cfg:      cfg,
+	}
+	dl, err := NewDeferredLoader("images", imageInfoLoader, logger)
 	if err != nil {
 		return err
 	}
-	if len(images) == 0 {
-		return nil
+	if toggle.EnableDeferredLoading.Enabled() {
+		if err := ctx.AddDeferredLoader(dl); err != nil {
+			return err
+		}
+	} else {
+		if err := imageInfoLoader.LoadData(); err != nil {
+			return err
+		}
 	}
-	ctx.images = images
-	utm, err := convertImagesToUntyped(images)
-	if err != nil {
-		return err
-	}
-
-	logging.V(4).Info("updated image info", "images", utm)
-	return addToContext(ctx, utm, "images")
+	return nil
 }
 
 func convertImagesToUntyped(images map[string]map[string]apiutils.ImageInfo) (map[string]interface{}, error) {
@@ -335,6 +340,35 @@ func convertImagesToUntyped(images map[string]map[string]apiutils.ImageInfo) (ma
 	return results, nil
 }
 
+type ImageInfoLoader struct {
+	resource  *unstructured.Unstructured
+	hasLoaded bool
+	eCtx      *context
+	cfg       config.Configuration
+}
+
+func (l *ImageInfoLoader) HasLoaded() bool {
+	return l.hasLoaded
+}
+
+func (l *ImageInfoLoader) LoadData() error {
+	images, err := apiutils.ExtractImagesFromResource(*l.resource, nil, l.cfg)
+	if err != nil {
+		return err
+	}
+	if len(images) == 0 {
+		return nil
+	}
+	l.eCtx.images = images
+	utm, err := convertImagesToUntyped(images)
+	if err != nil {
+		return err
+	}
+
+	logging.V(4).Info("updated image info", "images", utm)
+	return addToContext(l.eCtx, utm, "images")
+}
+
 func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kyvernov1.ImageExtractorConfigs, cfg config.Configuration) (map[string]map[string]apiutils.ImageInfo, error) {
 	images, err := apiutils.ExtractImagesFromResource(*resource, imageExtractorConfigs, cfg)
 	if err != nil {
@@ -350,6 +384,12 @@ func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured,
 }
 
 func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
+	// force load of image info from deferred loader
+	if len(ctx.images) == 0 {
+		if err := ctx.loadDeferred("images"); err != nil {
+			return map[string]map[string]apiutils.ImageInfo{}
+		}
+	}
 	return ctx.images
 }
 
