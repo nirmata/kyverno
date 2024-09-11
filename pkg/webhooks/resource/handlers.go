@@ -61,6 +61,7 @@ type resourceHandlers struct {
 
 	admissionReports             bool
 	backgroungServiceAccountName string
+	reportsServiceAccountName    string
 }
 
 func NewHandlers(
@@ -80,6 +81,7 @@ func NewHandlers(
 	openApiManager openapi.ValidateInterface,
 	admissionReports bool,
 	backgroungServiceAccountName string,
+	reportsServiceAccountName string,
 	jp jmespath.Interface,
 ) webhooks.ResourceHandlers {
 	return &resourceHandlers{
@@ -100,6 +102,7 @@ func NewHandlers(
 		pcBuilder:                    webhookutils.NewPolicyContextBuilder(configuration, jp),
 		admissionReports:             admissionReports,
 		backgroungServiceAccountName: backgroungServiceAccountName,
+		reportsServiceAccountName:    reportsServiceAccountName,
 	}
 }
 

@@ -16,12 +16,10 @@ import (
 
 // Generate provides implementation to validate 'generate' rule
 type Generate struct {
-	// rule to hold 'generate' rule specifications
-	rule kyvernov1.Generation
-	// authCheck to check access for operations
-	authCheck Operations
-	// logger
-	log logr.Logger
+	user        string
+	rule        kyvernov1.Generation
+	authChecker auth.AuthChecks
+	log         logr.Logger
 }
 
 // NewGenerateFactory returns a new instance of Generate validation checker

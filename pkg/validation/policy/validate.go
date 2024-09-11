@@ -122,7 +122,7 @@ func checkValidationFailureAction(spec *kyvernov1.Spec) []string {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager, username string) ([]string, error) {
+func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager, backgroundSA, reportsSA string) ([]string, error) {
 	var warnings []string
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -278,7 +278,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		if err := validateActions(i, &rules[i], client, mock, username); err != nil {
+		if err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA); err != nil {
 			return warnings, err
 		}
 
