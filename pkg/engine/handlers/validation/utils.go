@@ -2,8 +2,9 @@ package validation
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/utils/match"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )

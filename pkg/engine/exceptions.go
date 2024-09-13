@@ -29,8 +29,6 @@ func (e *engine) GetPolicyExceptions(
 	}
 	return e.exceptionSelector.Find(cache.MetaObjectToName(policy).String(), rule)
 }
-
-
 // matchesException checks if an exception applies to the resource being admitted
 func matchesException(
 	selector engineapi.PolicyExceptionSelector,

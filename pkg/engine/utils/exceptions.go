@@ -3,9 +3,9 @@ package utils
 import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	matched "github.com/kyverno/kyverno/pkg/utils/match"

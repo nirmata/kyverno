@@ -64,6 +64,7 @@ func (c *PolicyContext) SetOperation(op kyvernov1.AdmissionOperation) error {
 	}
 	return nil
 }
+
 // engineapi.PolicyContext interface
 
 func (c *PolicyContext) Policy() kyvernov1.PolicyInterface {
