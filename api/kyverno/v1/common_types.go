@@ -374,6 +374,11 @@ type Validation struct {
 	// +optional
 	RawPattern *apiextv1.JSON `json:"pattern,omitempty" yaml:"pattern,omitempty"`
 
+	// AllowExistingViolations allows prexisting violating resources to continue violating a policy.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=true
+	AllowExistingViolations *bool `json:"allowExistingViolations,omitempty" yaml:"allowExistingViolations,omitempty"`
+
 	// AnyPattern specifies list of validation patterns. At least one of the patterns
 	// must be satisfied for the validation rule to succeed.
 	// +optional

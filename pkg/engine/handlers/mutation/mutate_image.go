@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -57,6 +58,7 @@ func (h mutateImageHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	contextLoader engineapi.EngineContextLoader,
+	exceptions []*v2alpha1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	jsonContext := policyContext.JSONContext()
 	ruleCopy, err := substituteVariables(rule, jsonContext, logger)

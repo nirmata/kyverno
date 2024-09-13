@@ -274,8 +274,14 @@ func (e *engine) invokeRuleHandler(
 					s := stringutils.JoinNonEmpty([]string{"preconditions not met", msg}, "; ")
 					return resource, handlers.WithSkip(rule, ruleType, s)
 				}
+				// get policy exceptions that matches both policy and rule name
+				exceptions, err := e.GetPolicyExceptions(policyContext.Policy(), rule.Name)
+				if err != nil {
+					logger.Error(err, "failed to get exceptions")
+					return resource, nil
+				}
 				// process handler
-				return handler.Process(ctx, logger, policyContext, resource, rule, contextLoader)
+				return handler.Process(ctx, logger, policyContext, resource, rule, contextLoader, exceptions)
 			}
 			return resource, nil
 		},

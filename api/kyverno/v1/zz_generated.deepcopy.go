@@ -1353,6 +1353,11 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 		*out = new(apiextensionsv1.JSON)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.AllowExistingViolations != nil {
+		in, out := &in.AllowExistingViolations, &out.AllowExistingViolations
+		*out = new(bool)
+		**out = **in
+	}
 	if in.RawAnyPattern != nil {
 		in, out := &in.RawAnyPattern, &out.RawAnyPattern
 		*out = new(apiextensionsv1.JSON)

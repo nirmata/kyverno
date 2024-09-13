@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/kyverno/go-jmespath"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
@@ -18,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
+	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -35,6 +37,7 @@ func (h validateResourceHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	contextLoader engineapi.EngineContextLoader,
+	exceptions []*v2alpha1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	v := newValidator(logger, contextLoader, policyContext, rule)
 	return resource, handlers.WithResponses(v.validate(ctx))
@@ -111,27 +114,73 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, s)
 	}
 
+	var ruleResponse *engineapi.RuleResponse
 	if v.deny != nil {
-		return v.validateDeny()
-	}
-
-	if v.pattern != nil || v.anyPattern != nil {
+		ruleResponse = v.validateDeny()
+	} else if v.pattern != nil || v.anyPattern != nil {
 		if err = v.substitutePatterns(); err != nil {
 			return engineapi.RuleError(v.rule.Name, engineapi.Validation, "variable substitution failed", err)
 		}
+		ruleResponse = v.validateResourceWithRule()
+	} else if v.forEach != nil {
+		ruleResponse = v.validateForEach(ctx)
+	} else {
+		v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
+	}
+	
+	allowExisitingViolations := v.rule.HasValidateAllowExistingViolations()
+	if engineutils.IsUpdateRequest(v.policyContext) && allowExisitingViolations && v.nesting == 0 { // is update request and is the root level validate
+		priorResp, err := v.validateOldObject(ctx)
+		if err != nil {
+			v.log.V(2).Info("warning: failed to validate old object, skipping the rule evaluation as pre-existing violations are allowed", "rule", v.rule.Name, "error", err.Error())
+			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "failed to validate old object, skipping as preexisting violations are allowed")
+		}
 
-		ruleResponse := v.validateResourceWithRule()
-		return ruleResponse
+		if engineutils.IsSameRuleResponse(ruleResponse, priorResp) {
+			v.log.V(3).Info("skipping modified resource as validation results have not changed")
+			if ruleResponse.Status() == engineapi.RuleStatusPass {
+				return ruleResponse
+			}
+			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping modified resource as validation results have not changed")
+		}
 	}
 
-	if v.forEach != nil {
-		ruleResponse := v.validateForEach(ctx)
-		return ruleResponse
-	}
-
-	v.log.V(2).Info("invalid validation rule: podSecurity, patterns, or deny expected")
-	return nil
+	return ruleResponse
 }
+
+func (v *validator) validateOldObject(ctx context.Context) (*engineapi.RuleResponse, error) {
+	if v.policyContext.Operation() != kyvernov1.Update {
+		return nil, errors.New("invalid operation")
+	}
+
+	newResource := v.policyContext.NewResource()
+	oldResource := v.policyContext.OldResource()
+	emptyResource := unstructured.Unstructured{}
+
+	if ok := matchResource(oldResource, v.rule); !ok {
+		return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "resource not matched"), nil
+	}
+
+	if err := v.policyContext.SetResources(emptyResource, oldResource); err != nil {
+		return nil, errors.Wrapf(err, "failed to set resources")
+	}
+	if err := v.policyContext.SetOperation(kyvernov1.Create); err != nil { // simulates the condition when old object was "created"
+		return nil, errors.Wrapf(err, "failed to set operation")
+	}
+
+	resp := v.validate(ctx)
+
+	if err := v.policyContext.SetResources(oldResource, newResource); err != nil {
+		return nil, errors.Wrapf(err, "failed to reset resources")
+	}
+
+	if err := v.policyContext.SetOperation(kyvernov1.Update); err != nil {
+		return nil, errors.Wrapf(err, "failed to reset operation")
+	}
+
+	return resp, nil
+}
+
 
 func (v *validator) validateForEach(ctx context.Context) *engineapi.RuleResponse {
 	applyCount := 0

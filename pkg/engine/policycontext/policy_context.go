@@ -10,6 +10,7 @@ import (
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -55,6 +56,14 @@ type PolicyContext struct {
 	admissionOperation bool
 }
 
+// SetOperation implements api.PolicyContext.
+func (c *PolicyContext) SetOperation(op kyvernov1.AdmissionOperation) error {
+	c.operation = op
+	if err := c.jsonContext.AddOperation(string(op)); err != nil {
+		return errors.Wrapf(err, "failed to replace old object in the JSON context")
+	}
+	return nil
+}
 // engineapi.PolicyContext interface
 
 func (c *PolicyContext) Policy() kyvernov1.PolicyInterface {
@@ -174,6 +183,18 @@ func (c *PolicyContext) withAdmissionOperation(admissionOperation bool) *PolicyC
 
 func (c PolicyContext) copy() *PolicyContext {
 	return &c
+}
+
+func (c *PolicyContext) SetResources(oldResource, newResource unstructured.Unstructured) error {
+	c.newResource = newResource
+	if err := c.jsonContext.AddResource(c.newResource.Object); err != nil {
+		return errors.Wrapf(err, "failed to replace object in the JSON context")
+	}
+	c.oldResource = oldResource
+	if err := c.jsonContext.AddOldResource(c.oldResource.Object); err != nil {
+		return errors.Wrapf(err, "failed to replace old object in the JSON context")
+	}
+	return nil
 }
 
 // Constructors

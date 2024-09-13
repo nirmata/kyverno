@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
@@ -42,6 +43,7 @@ func (h validateImageHandler) Process(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	_ engineapi.EngineContextLoader,
+	exceptions []*v2alpha1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()

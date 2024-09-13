@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2alpha1 "github.com/kyverno/kyverno/api/kyverno/v2alpha1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/pss"
@@ -29,7 +30,8 @@ func (h validatePssHandler) Process(
 	policyContext engineapi.PolicyContext,
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
-	_ engineapi.EngineContextLoader,
+	engineLoader engineapi.EngineContextLoader,
+	exceptions []*kyvernov2alpha1.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
 	// Marshal pod metadata and spec
 	podSecurity := rule.Validation.PodSecurity
