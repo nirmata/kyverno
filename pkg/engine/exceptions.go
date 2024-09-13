@@ -20,7 +20,7 @@ func findExceptions(
 	return selector.Find(cache.MetaObjectToName(policy).String(), rule)
 }
 
-func (e *engine) GetPolicyExceptions(
+func (e *engine) GetPolicyExceptions( //nolint:all
 	policy kyvernov1.PolicyInterface,
 	rule string,
 ) ([]*kyvernov2alpha1.PolicyException, error) {
@@ -63,7 +63,7 @@ func matchesException(
 
 // hasPolicyExceptions returns nil when there are no matching exceptions.
 // A rule response is returned when an exception is matched, or there is an error.
-func (e *engine) hasPolicyExceptions(
+func (e *engine) hasPolicyExceptions( //nolint:all
 	logger logr.Logger,
 	ruleType engineapi.RuleType,
 	ctx engineapi.PolicyContext,
