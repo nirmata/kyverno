@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.22.2
+go 1.22.5
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24
@@ -409,7 +409,4 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 )
 
-replace (
-	github.com/sigstore/cosign/v2 => github.com/kyverno/cosign/v2 v2.0.0-20231109090756-51fd41540436
-	sigs.k8s.io/kubectl-validate => github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70
-)
+replace sigs.k8s.io/kubectl-validate => github.com/kyverno/kubectl-validate v0.0.0-20231116142848-59e4e6124b70
