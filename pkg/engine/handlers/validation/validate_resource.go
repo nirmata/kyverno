@@ -129,9 +129,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 		v.log.V(2).Info("invalid validation rule: podSecurity, cel, patterns, or deny expected")
 	}
 
-	var action kyvernov1.ValidationFailureAction
-
-	action = v.policyContext.Policy().GetSpec().ValidationFailureAction
+	action := v.policyContext.Policy().GetSpec().ValidationFailureAction
 
 	// process the old object for UPDATE admission requests in case of enforce policies
 	if action == kyvernov1.Enforce {

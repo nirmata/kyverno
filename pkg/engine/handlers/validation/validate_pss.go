@@ -78,8 +78,7 @@ func (h validatePssHandler) validate(
 	} else {
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, rule.Name, podSecurity.Level, podSecurity.Version, pss.FormatChecksPrint(pssChecks))
 		ruleResponse := engineapi.RuleFail(rule.Name, engineapi.Validation, msg).WithPodSecurityChecks(podSecurityChecks)
-		var action kyvernov1.ValidationFailureAction
-		action = policyContext.Policy().GetSpec().ValidationFailureAction
+		action := policyContext.Policy().GetSpec().ValidationFailureAction
 
 		// process the old object for UPDATE admission requests in case of enforce policies
 		if action == kyvernov1.Enforce {
