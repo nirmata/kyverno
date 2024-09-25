@@ -42179,6 +42179,7 @@ spec:
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
             - --generateValidatingAdmissionPolicy=false
+            - --dumpPatches=false
             - --loggingFormat=text
             - --v=2
             - --enablePolicyException=true
