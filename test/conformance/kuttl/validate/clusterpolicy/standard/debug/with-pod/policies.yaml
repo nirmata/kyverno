@@ -13,6 +13,6 @@ spec:
         any:
           - resources:
               kinds:
-                - Pod
+                - Pod/ephemeralcontainers
       validate:
         deny: {}
