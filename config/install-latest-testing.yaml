@@ -32426,6 +32426,7 @@ spec:
             - --enableConfigMapCaching=true
             - --enableDeferredLoading=true
             - --dumpPayload=false
+            - --dumpPatches=false
             - --forceFailurePolicyIgnore=false
             - --loggingFormat=text
             - --v=2

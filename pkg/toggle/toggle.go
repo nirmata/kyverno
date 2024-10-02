@@ -21,12 +21,18 @@ const (
 	EnableDeferredLoadingDescription = "enable deferred loading of context variables"
 	enableDeferredLoadingEnvVar      = "FLAG_ENABLE_DEFERRED_LOADING"
 	defaultEnableDeferredLoading     = true
+	// dump mutate patches
+	DumpMutatePatchesFlagName    = "dumpPatches"
+	DumpMutatePatchesDescription = "Set the flag to 'true', to dump mutate patches."
+	dumpMutatePatchesEnvVar      = "FLAG_DUMP_PATCHES"
+	defaultDumpMutatePatches     = false
 )
 
 var (
 	ProtectManagedResources  = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
 	ForceFailurePolicyIgnore = newToggle(defaultForceFailurePolicyIgnore, forceFailurePolicyIgnoreEnvVar)
 	EnableDeferredLoading    = newToggle(defaultEnableDeferredLoading, enableDeferredLoadingEnvVar)
+	DumpMutatePatches        = newToggle(defaultDumpMutatePatches, dumpMutatePatchesEnvVar)
 )
 
 type Toggle interface {
