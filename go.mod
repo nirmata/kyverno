@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.22.5
+go 1.23.1
 
 require (
 	github.com/IGLOU-EU/go-wildcard v1.0.3
@@ -198,7 +198,7 @@ require (
 	github.com/go-piv/piv-go v1.11.0 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
