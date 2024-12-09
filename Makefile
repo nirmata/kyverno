@@ -15,7 +15,7 @@ GOARCH               ?= $(shell go env GOARCH)
 KOCACHE              ?= /tmp/ko-cache
 BUILD_WITH           ?= ko
 KYVERNOPRE_IMAGE     := kyvernopre
-KYVERNO_IMAGE        := kyverno
+KYVERNO_IMAGE        ?= kyverno
 CLI_IMAGE            := kyverno-cli
 CLEANUP_IMAGE        := cleanup-controller
 REPORTS_IMAGE        := reports-controller
@@ -265,11 +265,11 @@ build-all: build-kyverno-init build-kyverno build-cli build-cleanup-controller b
 LOCAL_PLATFORM      := linux/$(GOARCH)
 KO_REGISTRY         ?= ko.local
 ifndef VERSION
-KO_TAGS             := $(GIT_SHA)
+KO_TAGS             ?= $(GIT_SHA)
 else ifeq ($(VERSION),main)
-KO_TAGS             := $(GIT_SHA),latest
+KO_TAGS             ?= $(GIT_SHA),latest
 else
-KO_TAGS             := $(GIT_SHA),$(subst /,-,$(VERSION))
+KO_TAGS             ?= $(GIT_SHA),$(subst /,-,$(VERSION))
 endif
 
 KO_CLI_REPO         := $(PACKAGE)/$(CLI_DIR)
