@@ -16,9 +16,18 @@ inputs:
   chainsaw-config:
     description: Chainsaw config
     default: ../../../.chainsaw.yaml
+  tests-path:
+    description: Tests path
+    default: '.'
   chainsaw-tests:
     description: Test regex
-    required: true
+    default: ''
+  shard-index:
+    description: Shard index
+    default: '0'
+  shard-count:
+    description: Shard count
+    default: '0'
 runs:
   using: composite
   steps:
@@ -29,7 +38,7 @@ runs:
     - name: Install Cosign
       uses: sigstore/cosign-installer@4959ce089c160fddf62f7b42464195ba1a56d382 # v3.6.0
     - name: Install chainsaw
-      uses: kyverno/action-install-chainsaw@d1a61148c0437a66760d11d8575332305c2234cb # v0.2.10
+      uses: kyverno/action-install-chainsaw@d311eacde764f806c9658574ff64c9c3b21f8397 # v0.2.11
       with:
         verify: true
     # create cluster
@@ -58,6 +67,15 @@ runs:
         make kind-install-kyverno
     - name: Wait for kyverno ready
       uses: ./.github/actions/kyverno-wait-ready
+    # install kubectl-evict plugin needed for testing eviction subresource trigger
+    - name: Install kubectl-evict
+      shell: bash
+      run: |
+        set -e
+        GOBIN=$(go env GOPATH)/bin
+        go install github.com/ueokande/kubectl-evict@latest
+        echo 'Adding kubectl-evict directory to PATH...'
+        echo "${GOBIN}" >> "${GITHUB_PATH}"
     # run tests
     - name: Test with Chainsaw
       shell: bash
@@ -65,7 +83,12 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -e
-        cd ./test/conformance/chainsaw && chainsaw test --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' --config ${{ inputs.chainsaw-config }}
+        cd ./test/conformance/chainsaw
+        chainsaw test ${{ inputs.tests-path }} \
+          --config ${{ inputs.chainsaw-config }} \
+          --include-test-regex '^chainsaw$/${{ inputs.chainsaw-tests }}' \
+          --shard-index ${{ inputs.shard-index }} \
+          --shard-count ${{ inputs.shard-count }}
     # debug
     - name: Debug failure
       if: failure()

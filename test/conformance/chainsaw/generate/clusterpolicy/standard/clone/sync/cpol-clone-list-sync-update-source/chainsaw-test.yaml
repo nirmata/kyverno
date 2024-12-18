@@ -7,28 +7,49 @@ spec:
   - name: step-00
     try:
     - apply:
-        file: permissions.yaml
+        file: 0-0-permissions.yaml
     - apply:
-        file: manifests.yaml
-    - apply:
-        file: cluster-policy.yaml
-    - assert:
-        file: cluster-policy-ready.yaml
+        file: 0-1-manifests.yaml
+  - name: create policy
+    use:
+      template: ../../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: sync-with-multi-clone-update
   - name: step-01
     try:
     - apply:
-        file: ns.yaml
+        file: 1-0-ns.yaml
     - assert:
-        file: resource-assert.yaml
+        file: 1-1-resource-assert.yaml
   - name: step-02
     try:
     - apply:
-        file: ns.yaml
+        file: 2-0-update-source.yaml
     - assert:
-        file: resource-assert.yaml
+        file: 2-1-synchronized-target.yaml
   - name: step-03
     try:
     - apply:
-        file: update-source.yaml
+        file: 3-0-update-cluster-policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: sync-with-multi-clone-update
+  - name: step-04
+    try:
+    - apply:
+        file: 4-0-update-source.yaml
     - assert:
-        file: synchronized-target.yaml
+        file: 2-1-synchronized-target.yaml

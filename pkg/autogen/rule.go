@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 )
 
 // the kyvernoRule holds the temporary kyverno rule struct
@@ -21,14 +22,16 @@ import (
 // https://github.com/kyverno/kyverno/issues/568
 
 type kyvernoRule struct {
-	Name             string                        `json:"name"`
-	MatchResources   *kyvernov1.MatchResources     `json:"match"`
-	ExcludeResources *kyvernov1.MatchResources     `json:"exclude,omitempty"`
-	Context          *[]kyvernov1.ContextEntry     `json:"context,omitempty"`
-	AnyAllConditions *kyvernov1.ConditionsWrapper  `json:"preconditions,omitempty"`
-	Mutation         *kyvernov1.Mutation           `json:"mutate,omitempty"`
-	Validation       *kyvernov1.Validation         `json:"validate,omitempty"`
-	VerifyImages     []kyvernov1.ImageVerification `json:"verifyImages,omitempty"`
+	Name                   string                                         `json:"name"`
+	MatchResources         *kyvernov1.MatchResources                      `json:"match"`
+	ExcludeResources       *kyvernov1.MatchResources                      `json:"exclude,omitempty"`
+	CELPreconditions       *[]admissionregistrationv1beta1.MatchCondition `json:"celPreconditions,omitempty"`
+	Context                *[]kyvernov1.ContextEntry                      `json:"context,omitempty"`
+	AnyAllConditions       *kyvernov1.ConditionsWrapper                   `json:"preconditions,omitempty"`
+	Mutation               *kyvernov1.Mutation                            `json:"mutate,omitempty"`
+	Validation             *kyvernov1.Validation                          `json:"validate,omitempty"`
+	VerifyImages           []kyvernov1.ImageVerification                  `json:"verifyImages,omitempty"`
+	SkipBackgroundRequests *bool                                          `json:"skipBackgroundRequests,omitempty"`
 }
 
 func createRule(rule *kyvernov1.Rule) *kyvernoRule {
@@ -36,8 +39,9 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 		return nil
 	}
 	jsonFriendlyStruct := kyvernoRule{
-		Name:         rule.Name,
-		VerifyImages: rule.VerifyImages,
+		Name:                   rule.Name,
+		VerifyImages:           rule.VerifyImages,
+		SkipBackgroundRequests: rule.SkipBackgroundRequests,
 	}
 	if !datautils.DeepEqual(rule.MatchResources, kyvernov1.MatchResources{}) {
 		jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
@@ -64,6 +68,9 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	}
 	if len(rule.Context) > 0 {
 		jsonFriendlyStruct.Context = &rule.DeepCopy().Context
+	}
+	if len(rule.CELPreconditions) > 0 {
+		jsonFriendlyStruct.CELPreconditions = &rule.DeepCopy().CELPreconditions
 	}
 	return &jsonFriendlyStruct
 }
@@ -134,9 +141,10 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	if rule.Validation != nil {
 		if target := rule.Validation.GetPattern(); target != nil {
 			newValidate := &kyvernov1.Validation{
-				Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
-				FailureAction:          rule.Validation.FailureAction,
-				FailureActionOverrides: rule.Validation.FailureActionOverrides,
+				Message:                 variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+				FailureAction:           rule.Validation.FailureAction,
+				FailureActionOverrides:  rule.Validation.FailureActionOverrides,
+				AllowExistingViolations: rule.Validation.AllowExistingViolations,
 			}
 			newValidate.SetPattern(
 				map[string]interface{}{
@@ -150,10 +158,11 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		}
 		if rule.Validation.Deny != nil {
 			deny := &kyvernov1.Validation{
-				Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
-				Deny:                   rule.Validation.Deny,
-				FailureAction:          rule.Validation.FailureAction,
-				FailureActionOverrides: rule.Validation.FailureActionOverrides,
+				Message:                 variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
+				Deny:                    rule.Validation.Deny,
+				FailureAction:           rule.Validation.FailureAction,
+				FailureActionOverrides:  rule.Validation.FailureActionOverrides,
+				AllowExistingViolations: rule.Validation.AllowExistingViolations,
 			}
 			rule.Validation = deny
 			return rule
@@ -168,8 +177,9 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 					Version: rule.Validation.PodSecurity.Version,
 					Exclude: newExclude,
 				},
-				FailureAction:          rule.Validation.FailureAction,
-				FailureActionOverrides: rule.Validation.FailureActionOverrides,
+				FailureAction:           rule.Validation.FailureAction,
+				FailureActionOverrides:  rule.Validation.FailureActionOverrides,
+				AllowExistingViolations: rule.Validation.AllowExistingViolations,
 			}
 			rule.Validation = podSecurity
 			return rule
@@ -191,9 +201,10 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			failureAction := rule.Validation.FailureAction
 			failureActionOverrides := rule.Validation.FailureActionOverrides
 			rule.Validation = &kyvernov1.Validation{
-				Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
-				FailureAction:          failureAction,
-				FailureActionOverrides: failureActionOverrides,
+				Message:                 variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
+				FailureAction:           failureAction,
+				FailureActionOverrides:  failureActionOverrides,
+				AllowExistingViolations: rule.Validation.AllowExistingViolations,
 			}
 			rule.Validation.SetAnyPattern(patterns)
 			return rule
@@ -204,10 +215,11 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			failureAction := rule.Validation.FailureAction
 			failureActionOverrides := rule.Validation.FailureActionOverrides
 			rule.Validation = &kyvernov1.Validation{
-				Message:                variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
-				ForEachValidation:      newForeachValidate,
-				FailureAction:          failureAction,
-				FailureActionOverrides: failureActionOverrides,
+				Message:                 variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+				ForEachValidation:       newForeachValidate,
+				FailureAction:           failureAction,
+				FailureActionOverrides:  failureActionOverrides,
+				AllowExistingViolations: rule.Validation.AllowExistingViolations,
 			}
 			return rule
 		}
