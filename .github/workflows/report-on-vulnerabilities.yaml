@@ -37,7 +37,7 @@ jobs:
         fi
 
     - name: Upload vulnerability scan report
-      uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+      uses: actions/upload-artifact@6f51ac03b9356f520e9adb1b1b7802705f340c2b # v4.5.0
       if: contains(steps.parse-results.outputs.results, 'SchemaVersion')
       with:
         name: scan.json
@@ -54,7 +54,7 @@ jobs:
       - name: Setup build env
         uses: ./.github/actions/setup-build-env
       - name: Download scan
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           name: scan.json
       - name: Set scan output
