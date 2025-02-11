@@ -317,7 +317,7 @@ ko-publish-kyverno-init: ko-login ## Build and publish kyvernopre image (with ko
 .PHONY: ko-publish-kyverno
 ko-publish-kyverno: ko-login ## Build and publish kyverno image (with ko)
 	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNO) \
-		$(KO) build ./$(KYVERNO_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS) --sbom=$(SBOM_PARAM)
+		$(KO) build ./$(KYVERNO_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS) --sbom=$(SBOM_PARAM) 
 
 .PHONY: ko-publish-cli
 ko-publish-cli: ko-login ## Build and publish cli image (with ko)

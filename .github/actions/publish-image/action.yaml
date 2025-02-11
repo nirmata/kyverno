@@ -74,12 +74,12 @@ runs:
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ${{ steps.ko-publish.outputs.digest }}
+          ${{ steps.ko-publish.outputs.digest }} -y 
     - shell: bash
       env:
         COSIGN_REPOSITORY: ${{ inputs.sbom-repository }}
       run: |
-        cosign attach sbom --sbom ./${{ inputs.sbom-name }}-bom.cdx.json --type cyclonedx ${{ steps.ko-publish.outputs.digest }}
+        cosign attach sbom --sbom ./${{ inputs.sbom-name }}-bom.cdx.json --type cyclonedx ${{ steps.ko-publish.outputs.digest }} -y
     - shell: bash
       id: digest
       run: |
