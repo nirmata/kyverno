@@ -49,14 +49,14 @@ jobs:
 
       - name: Scan image using grype
         id: grype-scan
-        uses: anchore/scan-action@v3
+        uses: anchore/scan-action@3343887d815d7b07465f6fdcd395bd66508d486a  # v3
         with:
           image: ${{ env.IMAGE_NAME }}
           severity-cutoff: low
           fail-build: true
 
       - name: Scan image using trivy
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # master
         id: trivy-scan
         with:
           image-ref: ${{ env.IMAGE_NAME }}
